@@ -33,6 +33,11 @@
       <input name="target_root" placeholder="Example: BBQ/verano-2026">
       <small>Leave empty to download by category at the slskd root. This is not a local filesystem path.</small>
     </label>
+    <label class="check">
+      <input type="checkbox" name="deep_lossless_search" {{ 'checked' if config.deep_lossless_search else '' }}>
+      Deep lossless search
+      <small>Also tries format-specific FLAC/WAV searches before falling back to MP3.</small>
+    </label>
     <button class="button primary" type="submit">Start import</button>
   </form>
 </section>

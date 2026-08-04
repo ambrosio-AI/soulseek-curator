@@ -37,6 +37,7 @@ def write_csv(path: Path, job: ImportJob, statuses: set[str]) -> None:
                 "score",
                 "username",
                 "filename",
+                "quality_counts",
                 "message",
             ]
         )
@@ -54,6 +55,7 @@ def write_csv(path: Path, job: ImportJob, statuses: set[str]) -> None:
                     selected.score if selected else "",
                     selected.username if selected else "",
                     selected.filename if selected else "",
+                    format_quality_counts(result.quality_counts),
                     result.message,
                 ]
             )
@@ -82,8 +84,13 @@ def write_markdown(path: Path, job: ImportJob) -> None:
         line = f"- **{result.status}**: {result.track.display_name}"
         if selected:
             line += f" -> `{selected.filename}` ({selected.quality}, score {selected.score})"
+        if result.quality_counts:
+            line += f" | seen: {format_quality_counts(result.quality_counts)}"
         if result.message:
             line += f" - {result.message}"
         lines.append(line)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
+
+def format_quality_counts(counts: dict[str, int]) -> str:
+    return ", ".join(f"{quality}:{count}" for quality, count in counts.items())

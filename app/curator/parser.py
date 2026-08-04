@@ -8,7 +8,6 @@ from pathlib import Path
 
 from .models import TrackRequest
 
-
 KNOWN_COLUMNS = {
     "artist": {"artist", "artista", "author"},
     "title": {"title", "tema", "track", "song", "cancion", "canción"},

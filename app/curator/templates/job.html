@@ -25,6 +25,11 @@
       <button class="button primary" type="submit">Queue {{ queueable_count }} selected</button>
     </form>
     {% endif %}
+    {% if job.status in ['completed', 'cancelled', 'error'] %}
+    <form method="post" action="/jobs/{{ job.id }}/rerun">
+      <button class="button primary" type="submit">Re-run fresh search</button>
+    </form>
+    {% endif %}
     <form method="post" action="/jobs/{{ job.id }}/reports">
       <button class="button" type="submit">Regenerate reports</button>
     </form>
@@ -53,6 +58,14 @@
       <span>
         <strong>{{ result.track.display_name }}</strong>
         <small>{{ result.message }}</small>
+        {% if result.quality_counts %}
+        <small>
+          Seen:
+          {% for quality, count in result.quality_counts.items() %}
+          {{ quality }} {{ count }}{% if not loop.last %} ·{% endif %}
+          {% endfor %}
+        </small>
+        {% endif %}
       </span>
       <span class="pill {{ result.status }}">{{ result.status }}</span>
       <span>{{ result.quality_attempted }}</span>

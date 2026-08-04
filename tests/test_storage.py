@@ -20,6 +20,31 @@ def test_job_from_dict_defaults_active_search_fields_for_old_payloads():
 
     assert job.active_search_id == ""
     assert job.active_query == ""
+    assert job.deep_lossless_search is False
+
+
+def test_job_from_dict_defaults_quality_counts_for_old_results():
+    job = job_from_dict(
+        {
+            "id": "job-1",
+            "name": "old.csv",
+            "created_at": "2026-08-04T10:00:00+00:00",
+            "mode": "dry-run",
+            "quality": "flac",
+            "fallback_order": ["flac"],
+            "target_root": "",
+            "tracks": [{"artist": "Demo", "title": "Track"}],
+            "results": [
+                {
+                    "track": {"artist": "Demo", "title": "Track"},
+                    "status": "not_found",
+                }
+            ],
+            "status": "completed",
+        }
+    )
+
+    assert job.results[0].quality_counts == {}
 
 
 def test_delete_job_removes_database_row_and_reports(tmp_path):

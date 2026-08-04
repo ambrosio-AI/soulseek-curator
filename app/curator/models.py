@@ -32,6 +32,7 @@ class CuratorConfig:
     maximum_queue_length: int = 1000000
     confidence_threshold: int = 72
     ambiguous_threshold: int = 58
+    deep_lossless_search: bool = True
     fallback_order: list[str] = field(
         default_factory=lambda: ["flac", "wav", "mp3_320", "mp3_v0", "mp3_any"]
     )
@@ -111,6 +112,7 @@ class TrackResult:
     quality_attempted: str = ""
     message: str = ""
     queued: bool = False
+    quality_counts: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
@@ -123,6 +125,7 @@ class ImportJob:
     fallback_order: list[str]
     target_root: str
     tracks: list[TrackRequest]
+    deep_lossless_search: bool = False
     results: list[TrackResult] = field(default_factory=list)
     status: str = "created"
     active_search_id: str = ""
@@ -137,7 +140,8 @@ class ImportJob:
         quality: str,
         fallback_order: list[str],
         target_root: str,
-    ) -> "ImportJob":
+        deep_lossless_search: bool = False,
+    ) -> ImportJob:
         return cls(
             id=str(uuid4()),
             name=name,
@@ -146,6 +150,7 @@ class ImportJob:
             quality=quality,
             fallback_order=fallback_order,
             target_root=target_root,
+            deep_lossless_search=deep_lossless_search,
             tracks=tracks,
         )
 

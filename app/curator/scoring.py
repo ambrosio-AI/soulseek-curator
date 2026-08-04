@@ -5,7 +5,6 @@ from pathlib import PureWindowsPath
 
 from .models import Candidate, CuratorConfig, QualityProfile, TrackRequest
 
-
 WORD_RE = re.compile(r"[a-z0-9]+")
 
 
@@ -104,6 +103,7 @@ def score_candidate(
         score=score,
         reasons=reasons,
         raw_file=dict(file),
+        search_id=str(response.get("_curator_search_id", "")),
     )
 
 
@@ -125,3 +125,16 @@ def choose_best(
             candidate = score_candidate(track, response, file, config, quality_name)
             candidates.append(candidate)
     return sorted(candidates, key=lambda item: item.score, reverse=True)
+
+
+def quality_counts(responses: list[dict], config: CuratorConfig) -> dict[str, int]:
+    counts = {name: 0 for name in config.quality_profiles}
+    counts["other"] = 0
+    for response in responses:
+        for file in response.get("files", []) or []:
+            quality = infer_quality(file, config.quality_profiles)
+            if quality in counts:
+                counts[quality] += 1
+            else:
+                counts["other"] += 1
+    return {name: count for name, count in counts.items() if count}

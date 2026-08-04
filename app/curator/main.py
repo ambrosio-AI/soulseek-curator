@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-import os
 import asyncio
+import os
 from pathlib import Path
+from typing import Annotated
 
+import httpx
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -98,6 +100,7 @@ async def update_settings(
     maximum_queue_length: int = Form(...),
     confidence_threshold: int = Form(...),
     ambiguous_threshold: int = Form(...),
+    deep_lossless_search: str | None = Form(None),
     fallback_order: str = Form(...),
     reject_terms: str = Form(...),
     category_folders: str = Form(""),
@@ -113,6 +116,7 @@ async def update_settings(
     config.maximum_queue_length = maximum_queue_length
     config.confidence_threshold = confidence_threshold
     config.ambiguous_threshold = ambiguous_threshold
+    config.deep_lossless_search = deep_lossless_search == "on"
     config.fallback_order = [item.strip() for item in fallback_order.split(",") if item.strip()]
     config.reject_terms = [item.strip() for item in reject_terms.splitlines() if item.strip()]
     config.category_folders = parse_category_folders(category_folders)
@@ -132,11 +136,12 @@ async def new_import(request: Request):
 @app.post("/imports")
 async def create_import(
     background_tasks: BackgroundTasks,
-    upload: UploadFile = File(...),
+    upload: Annotated[UploadFile, File()],
     mode: str = Form("dry-run"),
     quality: str = Form("flac"),
     fallback_order: str = Form("flac,wav,mp3_320,mp3_v0,mp3_any"),
     target_root: str = Form(""),
+    deep_lossless_search: str | None = Form(None),
 ):
     content = await upload.read()
     tracks = parse_track_list(upload.filename or "import.txt", content)
@@ -153,6 +158,7 @@ async def create_import(
         quality=quality,
         fallback_order=[item.strip() for item in fallback_order.split(",") if item.strip()],
         target_root=target_root.strip(),
+        deep_lossless_search=deep_lossless_search == "on",
     )
     store.save_job(job)
     background_tasks.add_task(process_job, job, config, store, queue=queue)
@@ -192,7 +198,7 @@ async def cancel_job(job_id: str):
         client = build_client(load_config())
         try:
             await client.stop_search(job.active_search_id)
-        except Exception:
+        except httpx.HTTPError:
             pass
     job = store.get_job(job_id)
     job.status = "cancelled"
@@ -224,6 +230,28 @@ async def queue_selected_job_results(job_id: str):
     if job.status not in TERMINAL_JOB_STATUSES:
         raise HTTPException(status_code=409, detail="Only finished jobs can queue selected dry-run results")
     await queue_selected_results(job, load_config(), store)
+    return RedirectResponse(f"/jobs/{job.id}", status_code=303)
+
+
+@app.post("/jobs/{job_id}/rerun")
+async def rerun_job(job_id: str, background_tasks: BackgroundTasks):
+    try:
+        original = store.get_job(job_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Job not found") from None
+    if original.status not in TERMINAL_JOB_STATUSES:
+        raise HTTPException(status_code=409, detail="Only finished jobs can be re-run")
+    job = ImportJob.create(
+        name=f"Re-run of {original.name}",
+        tracks=original.tracks,
+        mode="dry-run",
+        quality=original.quality,
+        fallback_order=original.fallback_order,
+        target_root=original.target_root,
+        deep_lossless_search=original.deep_lossless_search,
+    )
+    store.save_job(job)
+    background_tasks.add_task(process_job, job, load_config(), store, queue=False)
     return RedirectResponse(f"/jobs/{job.id}", status_code=303)
 
 

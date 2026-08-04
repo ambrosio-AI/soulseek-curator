@@ -112,6 +112,7 @@ def job_from_dict(payload: dict[str, Any]) -> ImportJob:
                 quality_attempted=item.get("quality_attempted", ""),
                 message=item.get("message", ""),
                 queued=bool(item.get("queued")),
+                quality_counts=dict(item.get("quality_counts", {})),
             )
         )
     return ImportJob(
@@ -122,6 +123,7 @@ def job_from_dict(payload: dict[str, Any]) -> ImportJob:
         quality=payload["quality"],
         fallback_order=list(payload.get("fallback_order", [])),
         target_root=payload["target_root"],
+        deep_lossless_search=bool(payload.get("deep_lossless_search", False)),
         tracks=tracks,
         results=results,
         status=payload.get("status", "created"),

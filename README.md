@@ -19,6 +19,9 @@ It is not designed as a piracy automation tool.
 - Match scoring with confidence and ambiguous thresholds.
 - Dry-run mode.
 - Dry-run jobs can queue their selected matches later without repeating the search.
+- Deep lossless search mode for extra FLAC/WAV-specific searches before MP3 fallback.
+- Per-track quality counters showing how many FLAC, WAV, MP3, and other files were seen.
+- Finished jobs can be re-run as a fresh dry-run without uploading the list again.
 - Running imports can be cancelled from the job page.
 - Dashboard separates active jobs from finished jobs and refreshes while work is active.
 - Completed, cancelled, and failed jobs can be deleted from the dashboard or job page.
@@ -84,6 +87,19 @@ Markdown lists are also supported:
 
 Dry-run mode searches and scores results without queueing anything.
 
+Deep lossless search is enabled by default for new imports. Curator first searches the
+plain track query. If it does not already find a confident FLAC/WAV candidate, it also
+tries format-specific queries such as:
+
+```text
+Artist Title flac
+Artist Title wav
+```
+
+It then applies the configured fallback order over all responses. This is slower than a
+plain search, but it helps avoid falling to MP3 just because Soulseek returned weak
+lossless candidates in the first response set.
+
 Queue mode sends selected matches to slskd using:
 
 ```text
@@ -106,6 +122,11 @@ After a dry-run completes, the job page shows `Queue N selected` when it has sel
 fallback matches that have not been queued yet. This is a manual action and does not
 require enabling automatic queueing. Curator marks queued results so the same job does not
 send them again.
+
+Finished jobs also show `Re-run fresh search`. This creates a new dry-run with the same
+tracks, preferred quality, fallback order, destination prefix, and deep-lossless setting.
+Use it when slskd/Soulseek results have changed or when an older job was produced before
+search settings were fixed.
 
 Running jobs show a `Cancel job` button. Cancelling marks the Curator job as cancelled,
 stops the active slskd search when one is known, and prevents any further tracks from
@@ -233,6 +254,10 @@ Files:
 - `not-found.csv`: tracks with no acceptable result.
 - `fallback-used.csv`: tracks found using a lower fallback quality.
 - `ambiguous.csv`: tracks needing manual review.
+
+Reports and job rows include `quality_counts`, for example `flac:12, wav:2, mp3_320:18`.
+Those counts describe what Curator saw in the slskd responses for that track, not what it
+finally selected.
 
 ## Development
 

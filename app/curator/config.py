@@ -9,7 +9,6 @@ import yaml
 
 from .models import CuratorConfig, QualityProfile
 
-
 DEFAULT_CONFIG_PATH = Path(os.getenv("CURATOR_CONFIG", "config/curator.yaml"))
 
 
@@ -56,6 +55,7 @@ def load_config(path: Path = DEFAULT_CONFIG_PATH) -> CuratorConfig:
         maximum_queue_length=int(raw.get("maximum_queue_length", base.maximum_queue_length)),
         confidence_threshold=int(raw.get("confidence_threshold", base.confidence_threshold)),
         ambiguous_threshold=int(raw.get("ambiguous_threshold", base.ambiguous_threshold)),
+        deep_lossless_search=bool(raw.get("deep_lossless_search", base.deep_lossless_search)),
         fallback_order=fallback_order,
         reject_terms=list(raw.get("reject_terms", base.reject_terms)),
         category_folders=dict(raw.get("category_folders", base.category_folders)),

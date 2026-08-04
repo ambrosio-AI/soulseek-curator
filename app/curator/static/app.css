@@ -297,12 +297,19 @@ textarea {
 }
 
 .check {
-  align-items: center;
-  display: flex;
+  align-items: start;
+  column-gap: 9px;
+  display: grid;
+  grid-template-columns: auto 1fr;
 }
 
 .check input {
   min-height: auto;
+  margin-top: 3px;
+}
+
+.check small {
+  grid-column: 2;
 }
 
 .report-links {

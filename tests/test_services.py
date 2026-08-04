@@ -76,6 +76,126 @@ def test_process_job_searches_once_per_track_for_quality_fallback(tmp_path, monk
     assert result.status == "completed"
     assert result.results[0].status == "fallback_used"
     assert result.results[0].quality_attempted == "mp3_320"
+    assert result.results[0].quality_counts == {"mp3_320": 1}
+
+
+def test_process_job_deep_lossless_search_tries_format_query_before_mp3_fallback(
+    tmp_path, monkeypatch
+):
+    class DeepClient:
+        def __init__(self):
+            self.queries = []
+
+        async def start_search(self, query, **kwargs):
+            self.queries.append(query)
+            return f"search-{len(self.queries)}"
+
+        async def search_responses(self, search_id):
+            if search_id == "search-1":
+                return [
+                    {
+                        "username": "demo",
+                        "hasFreeUploadSlot": True,
+                        "queueLength": 0,
+                        "uploadSpeed": 512,
+                        "files": [
+                            {
+                                "filename": "Demo - Track.mp3",
+                                "extension": "mp3",
+                                "bitRate": 320,
+                                "size": 9000000,
+                            }
+                        ],
+                    }
+                ]
+            return [
+                {
+                    "username": "demo",
+                    "hasFreeUploadSlot": True,
+                    "queueLength": 0,
+                    "uploadSpeed": 512,
+                    "files": [
+                        {
+                            "filename": "Demo - Track.flac",
+                            "extension": "flac",
+                            "size": 32100000,
+                        }
+                    ],
+                }
+            ]
+
+        async def stop_search(self, search_id):
+            return True
+
+    client = DeepClient()
+    monkeypatch.setattr("curator.services.build_client", lambda config: client)
+    store = Store(tmp_path)
+    job = ImportJob.create(
+        name="deep.csv",
+        tracks=[TrackRequest(artist="Demo", title="Track")],
+        mode="dry-run",
+        quality="flac",
+        fallback_order=["flac", "mp3_320"],
+        target_root="",
+        deep_lossless_search=True,
+    )
+    store.save_job(job)
+
+    result = asyncio.run(process_job(job, CuratorConfig(search_timeout=1), store, queue=False))
+
+    assert client.queries == ["Demo Track", "Demo Track flac"]
+    assert result.results[0].status == "selected"
+    assert result.results[0].quality_attempted == "flac"
+    assert result.results[0].quality_counts == {"flac": 1, "mp3_320": 1}
+
+
+def test_process_job_skips_deep_queries_when_base_search_finds_lossless(tmp_path, monkeypatch):
+    class QuickClient:
+        def __init__(self):
+            self.queries = []
+
+        async def start_search(self, query, **kwargs):
+            self.queries.append(query)
+            return "search-1"
+
+        async def search_responses(self, search_id):
+            return [
+                {
+                    "username": "demo",
+                    "hasFreeUploadSlot": True,
+                    "queueLength": 0,
+                    "uploadSpeed": 512,
+                    "files": [
+                        {
+                            "filename": "Demo - Track.flac",
+                            "extension": "flac",
+                            "size": 32100000,
+                        }
+                    ],
+                }
+            ]
+
+        async def stop_search(self, search_id):
+            return True
+
+    client = QuickClient()
+    monkeypatch.setattr("curator.services.build_client", lambda config: client)
+    store = Store(tmp_path)
+    job = ImportJob.create(
+        name="deep.csv",
+        tracks=[TrackRequest(artist="Demo", title="Track")],
+        mode="dry-run",
+        quality="flac",
+        fallback_order=["flac", "wav", "mp3_320"],
+        target_root="",
+        deep_lossless_search=True,
+    )
+    store.save_job(job)
+
+    result = asyncio.run(process_job(job, CuratorConfig(search_timeout=1), store, queue=False))
+
+    assert client.queries == ["Demo Track"]
+    assert result.results[0].quality_counts == {"flac": 1}
 
 
 def test_process_job_uses_later_confident_fallback_over_early_ambiguous(tmp_path, monkeypatch):

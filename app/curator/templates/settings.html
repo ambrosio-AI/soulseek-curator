@@ -49,6 +49,11 @@
       <input type="checkbox" name="automatic_queue_enabled" {{ 'checked' if config.automatic_queue_enabled else '' }}>
       Enable automatic queueing
     </label>
+    <label class="full check">
+      <input type="checkbox" name="deep_lossless_search" {{ 'checked' if config.deep_lossless_search else '' }}>
+      Enable deep lossless search by default
+      <small>New imports will also try FLAC/WAV-specific queries before falling back to MP3.</small>
+    </label>
     <label class="full">
       Reject terms
       <textarea name="reject_terms" rows="8">{{ config.reject_terms|join('\n') }}</textarea>

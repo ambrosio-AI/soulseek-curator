@@ -7,10 +7,9 @@ import httpx
 from .config import slskd_api_key, slskd_password, slskd_username
 from .models import CuratorConfig, ImportJob, TrackResult, slskd_destination
 from .reports import write_reports
-from .scoring import choose_best
+from .scoring import choose_best, quality_counts
 from .slskd import MockSlskdClient, SlskdClient
 from .storage import Store
-
 
 CANCEL_STATUSES = {"cancel_requested", "cancelled"}
 QUEUEABLE_RESULT_STATUSES = {"selected", "fallback_used"}
@@ -48,38 +47,49 @@ async def process_job(job: ImportJob, config: CuratorConfig, store: Store, *, qu
         track_result: TrackResult | None = None
         preferred_quality = track.preferred_quality or job.quality or config.fallback_order[0]
         qualities = quality_chain(track, job, config)
-        job.active_search_id = ""
-        job.active_query = track.query
-        store.save_job(job)
-        search_id = await client.start_search(
-            track.query,
-            search_timeout=config.search_timeout,
-            response_limit=config.response_limit,
-            file_limit=config.file_limit,
-            minimum_upload_speed=config.minimum_upload_speed,
-            maximum_queue_length=config.maximum_queue_length,
-        )
-        job.active_search_id = search_id
-        job.active_query = track.query
-        store.save_job(job)
-        if await wait_for_search_or_cancel(job, config, store, client):
-            job.status = "cancelled"
+        responses: list[dict] = []
+        search_ids: list[str] = []
+        for query in search_queries(track, qualities, job.deep_lossless_search):
+            job.active_search_id = ""
+            job.active_query = query
+            store.save_job(job)
+            search_id = await client.start_search(
+                query,
+                search_timeout=config.search_timeout,
+                response_limit=config.response_limit,
+                file_limit=config.file_limit,
+                minimum_upload_speed=config.minimum_upload_speed,
+                maximum_queue_length=config.maximum_queue_length,
+            )
+            search_ids.append(search_id)
+            job.active_search_id = search_id
+            job.active_query = query
+            store.save_job(job)
+            if await wait_for_search_or_cancel(job, config, store, client):
+                job.status = "cancelled"
+                job.active_search_id = ""
+                job.active_query = ""
+                store.save_job(job)
+                write_reports(job, store.reports_dir)
+                return job
+            query_responses = await client.search_responses(search_id)
+            for response in query_responses:
+                response["_curator_search_id"] = search_id
+            responses.extend(query_responses)
             job.active_search_id = ""
             job.active_query = ""
             store.save_job(job)
-            write_reports(job, store.reports_dir)
-            return job
-        responses = await client.search_responses(search_id)
-        job.active_search_id = ""
-        job.active_query = ""
-        store.save_job(job)
+            if has_confident_lossless_match(track, responses, config, qualities):
+                break
         if not is_cancel_requested(store, job.id):
+            counts = quality_counts(responses, config)
             for quality in qualities:
                 if is_cancel_requested(store, job.id):
                     break
                 candidates = choose_best(track, responses, config, quality)
                 for candidate in candidates:
-                    candidate.search_id = search_id
+                    if not candidate.search_id:
+                        candidate.search_id = search_ids[-1] if search_ids else ""
                 if not candidates:
                     continue
                 best = candidates[0]
@@ -125,6 +135,7 @@ async def process_job(job: ImportJob, config: CuratorConfig, store: Store, *, qu
                         quality_attempted=quality,
                         message=message,
                         queued=queued,
+                        quality_counts=counts,
                     )
                     break
                 if best.score >= config.ambiguous_threshold:
@@ -135,6 +146,7 @@ async def process_job(job: ImportJob, config: CuratorConfig, store: Store, *, qu
                         candidates=candidates[:5],
                         quality_attempted=quality,
                         message="best result is below confidence threshold",
+                        quality_counts=counts,
                     )
                     if not track_result or best.score > (track_result.selected.score if track_result.selected else 0):
                         track_result = ambiguous_result
@@ -146,7 +158,12 @@ async def process_job(job: ImportJob, config: CuratorConfig, store: Store, *, qu
             write_reports(job, store.reports_dir)
             return job
         if not track_result:
-            track_result = TrackResult(track=track, status="not_found", message="no valid candidate")
+            track_result = TrackResult(
+                track=track,
+                status="not_found",
+                message="no valid candidate",
+                quality_counts=quality_counts(responses, config),
+            )
         results.append(track_result)
         job.results = results
         store.save_job(job)
@@ -237,3 +254,36 @@ def quality_chain(track, job: ImportJob, config: CuratorConfig) -> list[str]:
             seen.add(item)
             result.append(item)
     return result or config.fallback_order
+
+
+def search_queries(track, qualities: list[str], deep_lossless_search: bool) -> list[str]:
+    base = track.query
+    queries = [base]
+    if deep_lossless_search and any(quality in qualities for quality in ("flac", "wav")):
+        for suffix in ("flac", "wav"):
+            if suffix in qualities:
+                queries.append(f"{base} {suffix}")
+    seen = set()
+    result = []
+    for query in queries:
+        clean = " ".join(query.split())
+        key = clean.lower()
+        if clean and key not in seen:
+            seen.add(key)
+            result.append(clean)
+    return result
+
+
+def has_confident_lossless_match(
+    track,
+    responses: list[dict],
+    config: CuratorConfig,
+    qualities: list[str],
+) -> bool:
+    for quality in ("flac", "wav"):
+        if quality not in qualities:
+            continue
+        candidates = choose_best(track, responses, config, quality)
+        if candidates and candidates[0].score >= config.confidence_threshold:
+            return True
+    return False

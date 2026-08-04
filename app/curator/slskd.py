@@ -57,7 +57,7 @@ class SlskdClient:
             if response.status_code < 400:
                 return True, "connected"
             return False, f"HTTP {response.status_code}"
-        except Exception as exc:
+        except httpx.HTTPError as exc:
             return False, str(exc)
 
     async def search(self, query: str, *, search_timeout: int, response_limit: int, file_limit: int,

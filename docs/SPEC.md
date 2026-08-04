@@ -45,6 +45,23 @@ Default fallback order:
 flac,wav,mp3_320,mp3_v0,mp3_any
 ```
 
+## Search Strategy
+
+Normal mode runs one slskd search per track and applies the configured quality fallback
+order to the returned files.
+
+Deep lossless search is enabled by default for new jobs. In this mode Curator:
+
+1. Runs the plain query from the imported track.
+2. Stops early if the plain response already contains a confident FLAC/WAV match.
+3. Otherwise runs `query flac` and/or `query wav` for lossless qualities present in the
+   fallback chain.
+4. Merges responses, records per-quality candidate counts, and selects using the fallback
+   order.
+
+Deep lossless search never skips confidence scoring. It only expands the response pool
+before the normal selector chooses FLAC, WAV, or fallback MP3.
+
 ## Result States
 
 - `selected`: selected during dry-run.
@@ -55,6 +72,10 @@ flac,wav,mp3_320,mp3_v0,mp3_any
 - `ambiguous`: best candidate is below confidence but above ambiguity threshold.
 - `not_found`: no acceptable candidate.
 - `error`: reserved for failed processing.
+
+Each result may include `quality_counts`, a map such as `flac:12, wav:2, mp3_320:18`.
+These counts are diagnostic and represent files seen in slskd responses after configured
+quality profile inference.
 
 ## Reports
 
@@ -98,6 +119,9 @@ Dry-run promotion:
 - Already queued results are skipped so repeated clicks do not duplicate transfers.
 - This manual queue action does not require `automatic_queue_enabled`; that setting only
   gates imports started directly in queue mode.
+- A finished job may be re-run as a new dry-run. The re-run copies tracks, preferred
+  quality, fallback order, destination prefix, and deep-lossless setting, but discards old
+  candidates/results and searches slskd fresh.
 
 `PUT /api/v0/searches/{id}` is used to stop the active slskd search when cancelling a
 running Curator job. Cancelling a Curator job is not the same as cancelling downloads that

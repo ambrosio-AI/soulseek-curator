@@ -10,7 +10,7 @@ def test_parse_txt_artist_title_category():
 
 
 def test_parse_csv_spanish_headers():
-    payload = "categoria,artista,tema\nrock,System of a Down,Chop Suey!\n".encode()
+    payload = b"categoria,artista,tema\nrock,System of a Down,Chop Suey!\n"
     tracks = parse_track_list("list.csv", payload)
     assert tracks[0].artist == "System of a Down"
     assert tracks[0].title == "Chop Suey!"
