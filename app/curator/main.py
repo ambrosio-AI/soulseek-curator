@@ -151,6 +151,12 @@ async def cancel_job(job_id: str):
             await client.stop_search(job.active_search_id)
         except Exception:
             pass
+    job = store.get_job(job_id)
+    job.status = "cancelled"
+    job.active_search_id = ""
+    job.active_query = ""
+    store.save_job(job)
+    write_reports(job, store.reports_dir)
     return RedirectResponse(f"/jobs/{job.id}", status_code=303)
 
 
