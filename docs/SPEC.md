@@ -49,6 +49,8 @@ flac,wav,mp3_320,mp3_v0,mp3_any
 
 - `selected`: selected during dry-run.
 - `queued`: selected and sent to slskd.
+- `cancel_requested`: user requested cancellation; worker should stop at the next safe point.
+- `cancelled`: job was stopped before completion.
 - `fallback_used`: selected using a non-primary quality.
 - `ambiguous`: best candidate is below confidence but above ambiguity threshold.
 - `not_found`: no acceptable candidate.
@@ -71,6 +73,7 @@ Search:
 ```text
 POST /api/v0/searches
 GET /api/v0/searches/{id}/responses
+PUT /api/v0/searches/{id}
 ```
 
 Queue:
@@ -78,6 +81,10 @@ Queue:
 ```text
 POST /api/v0/transfers/downloads/batches
 ```
+
+`PUT /api/v0/searches/{id}` is used to stop the active slskd search when cancelling a
+running Curator job. Cancelling a Curator job is not the same as cancelling downloads that
+were already queued in slskd.
 
 Queue destination is relative to slskd's configured download directory. slskd owns the
 real filesystem path and NAS mount. Curator does not need to see or mount that path when

@@ -117,5 +117,6 @@ def job_from_dict(payload: dict[str, Any]) -> ImportJob:
         tracks=tracks,
         results=results,
         status=payload.get("status", "created"),
+        active_search_id=payload.get("active_search_id", ""),
+        active_query=payload.get("active_query", ""),
     )
-

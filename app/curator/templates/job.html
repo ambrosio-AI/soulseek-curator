@@ -5,10 +5,20 @@
   <div>
     <h1>{{ job.name }}</h1>
     <p>{{ job.status }} · {{ job.tracks|length }} tracks · {{ job.mode }}</p>
+    {% if job.active_query %}
+    <p class="active-search">Searching: {{ job.active_query }}</p>
+    {% endif %}
   </div>
-  <form method="post" action="/jobs/{{ job.id }}/reports">
-    <button class="button" type="submit">Regenerate reports</button>
-  </form>
+  <div class="actions">
+    {% if job.status not in ['completed', 'cancel_requested', 'cancelled', 'error'] %}
+    <form method="post" action="/jobs/{{ job.id }}/cancel">
+      <button class="button danger" type="submit">Cancel job</button>
+    </form>
+    {% endif %}
+    <form method="post" action="/jobs/{{ job.id }}/reports">
+      <button class="button" type="submit">Regenerate reports</button>
+    </form>
+  </div>
 </section>
 
 <section class="report-links">
@@ -40,4 +50,3 @@
   {% endif %}
 </section>
 {% endblock %}
-

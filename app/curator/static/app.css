@@ -150,6 +150,23 @@ small {
   color: var(--accent-ink);
 }
 
+.button.danger {
+  background: var(--bad);
+  border-color: var(--bad);
+  color: white;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.active-search {
+  margin-bottom: 0;
+}
+
 .section-title {
   align-items: center;
   display: flex;
@@ -295,4 +312,3 @@ textarea {
     grid-template-columns: 1fr;
   }
 }
-

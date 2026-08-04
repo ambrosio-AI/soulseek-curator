@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import asyncio
+
 from .config import slskd_api_key, slskd_password, slskd_username
 from .models import CuratorConfig, ImportJob, TrackResult, slskd_destination
 from .reports import write_reports
 from .scoring import choose_best
 from .slskd import MockSlskdClient, SlskdClient
 from .storage import Store
+
+
+CANCEL_STATUSES = {"cancel_requested", "cancelled"}
 
 
 def build_client(config: CuratorConfig) -> SlskdClient:
@@ -21,14 +26,28 @@ def build_client(config: CuratorConfig) -> SlskdClient:
 
 async def process_job(job: ImportJob, config: CuratorConfig, store: Store, *, queue: bool) -> ImportJob:
     client = build_client(config)
+    if is_cancel_requested(store, job.id):
+        job.status = "cancelled"
+        store.save_job(job)
+        write_reports(job, store.reports_dir)
+        return job
     job.status = "running"
     store.save_job(job)
     results: list[TrackResult] = []
     for track in job.tracks:
+        if is_cancel_requested(store, job.id):
+            job.status = "cancelled"
+            job.active_search_id = ""
+            job.active_query = ""
+            store.save_job(job)
+            write_reports(job, store.reports_dir)
+            return job
         qualities = quality_chain(track, job, config)
         track_result: TrackResult | None = None
         for quality in qualities:
-            search_id, responses = await client.search(
+            if is_cancel_requested(store, job.id):
+                break
+            search_id = await client.start_search(
                 track.query,
                 search_timeout=config.search_timeout,
                 response_limit=config.response_limit,
@@ -36,6 +55,22 @@ async def process_job(job: ImportJob, config: CuratorConfig, store: Store, *, qu
                 minimum_upload_speed=config.minimum_upload_speed,
                 maximum_queue_length=config.maximum_queue_length,
             )
+            job.active_search_id = search_id
+            job.active_query = track.query
+            store.save_job(job)
+            if await wait_for_search_or_cancel(job, config, store, client):
+                job.status = "cancelled"
+                job.active_search_id = ""
+                job.active_query = ""
+                store.save_job(job)
+                write_reports(job, store.reports_dir)
+                return job
+            responses = await client.search_responses(search_id)
+            job.active_search_id = ""
+            job.active_query = ""
+            store.save_job(job)
+            if is_cancel_requested(store, job.id):
+                break
             candidates = choose_best(track, responses, config, quality)
             for candidate in candidates:
                 candidate.search_id = search_id
@@ -56,6 +91,8 @@ async def process_job(job: ImportJob, config: CuratorConfig, store: Store, *, qu
                 queued = False
                 message = "selected"
                 if queue:
+                    if is_cancel_requested(store, job.id):
+                        break
                     await client.enqueue_batch(
                         username=best.username,
                         filename=best.filename,
@@ -87,6 +124,13 @@ async def process_job(job: ImportJob, config: CuratorConfig, store: Store, *, qu
                     message="best result is below confidence threshold",
                 )
                 break
+        if is_cancel_requested(store, job.id):
+            job.status = "cancelled"
+            job.active_search_id = ""
+            job.active_query = ""
+            store.save_job(job)
+            write_reports(job, store.reports_dir)
+            return job
         if not track_result:
             track_result = TrackResult(track=track, status="not_found", message="no valid candidate")
         results.append(track_result)
@@ -97,6 +141,28 @@ async def process_job(job: ImportJob, config: CuratorConfig, store: Store, *, qu
     store.save_job(job)
     write_reports(job, store.reports_dir)
     return job
+
+
+def is_cancel_requested(store: Store, job_id: str) -> bool:
+    try:
+        return store.get_job(job_id).status in CANCEL_STATUSES
+    except KeyError:
+        return False
+
+
+async def wait_for_search_or_cancel(
+    job: ImportJob,
+    config: CuratorConfig,
+    store: Store,
+    client: SlskdClient,
+) -> bool:
+    wait_seconds = max(1, min(config.search_timeout, 20))
+    for _ in range(wait_seconds):
+        if is_cancel_requested(store, job.id):
+            await client.stop_search(job.active_search_id)
+            return True
+        await asyncio.sleep(1)
+    return False
 
 
 def quality_chain(track, job: ImportJob, config: CuratorConfig) -> list[str]:

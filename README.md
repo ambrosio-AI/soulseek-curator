@@ -18,6 +18,7 @@ It is not designed as a piracy automation tool.
 - Category-to-folder mapping.
 - Match scoring with confidence and ambiguous thresholds.
 - Dry-run mode.
+- Running imports can be cancelled from the job page.
 - Optional slskd queue mode, disabled by default.
 - Reports: `report.md`, `found.csv`, `not-found.csv`, `fallback-used.csv`, `ambiguous.csv`.
 - Docker Compose deployment with a bundled slskd service.
@@ -86,6 +87,10 @@ POST /api/v0/transfers/downloads/batches
 ```
 
 Queue mode only works when `automatic_queue_enabled` is enabled in settings.
+
+Running jobs show a `Cancel job` button. Cancelling marks the Curator job as cancelled,
+stops the active slskd search when one is known, and prevents any further tracks from
+being searched or queued. It does not remove already queued downloads from slskd.
 
 ## Download Destinations
 

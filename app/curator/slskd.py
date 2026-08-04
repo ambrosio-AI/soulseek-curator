@@ -57,6 +57,28 @@ class SlskdClient:
 
     async def search(self, query: str, *, search_timeout: int, response_limit: int, file_limit: int,
                      minimum_upload_speed: int, maximum_queue_length: int) -> tuple[str, list[dict[str, Any]]]:
+        search_id = await self.start_search(
+            query,
+            search_timeout=search_timeout,
+            response_limit=response_limit,
+            file_limit=file_limit,
+            minimum_upload_speed=minimum_upload_speed,
+            maximum_queue_length=maximum_queue_length,
+        )
+        await asyncio.sleep(max(1, min(search_timeout, 20)))
+        responses = await self.search_responses(search_id)
+        return search_id, responses
+
+    async def start_search(
+        self,
+        query: str,
+        *,
+        search_timeout: int,
+        response_limit: int,
+        file_limit: int,
+        minimum_upload_speed: int,
+        maximum_queue_length: int,
+    ) -> str:
         await self.ensure_auth()
         payload = {
             "searchText": query,
@@ -75,14 +97,31 @@ class SlskdClient:
             )
             response.raise_for_status()
             search = response.json()
-            search_id = search.get("id") or search.get("Id") or ""
-            await asyncio.sleep(max(1, min(search_timeout, 20)))
+            return str(search.get("id") or search.get("Id") or "")
+
+    async def search_responses(self, search_id: str) -> list[dict[str, Any]]:
+        await self.ensure_auth()
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
             responses = await client.get(
                 f"{self.base_url}/api/v0/searches/{search_id}/responses",
                 headers=self.headers,
             )
             responses.raise_for_status()
-            return str(search_id), responses.json() or []
+            return responses.json() or []
+
+    async def stop_search(self, search_id: str) -> bool:
+        if not search_id:
+            return False
+        await self.ensure_auth()
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.put(
+                f"{self.base_url}/api/v0/searches/{search_id}",
+                headers=self.headers,
+            )
+            if response.status_code == 404:
+                return False
+            response.raise_for_status()
+            return True
 
     async def enqueue_batch(
         self,
@@ -145,6 +184,17 @@ class MockSlskdClient(SlskdClient):
                 ],
             }
         ]
+
+    async def start_search(self, query: str, **_: Any) -> str:
+        return f"mock-search-{query.replace(' ', '-').lower()}"
+
+    async def search_responses(self, search_id: str) -> list[dict[str, Any]]:
+        clean = search_id.replace("mock-search-", "").replace("-", " ")
+        _, responses = await self.search(clean)
+        return responses
+
+    async def stop_search(self, search_id: str) -> bool:
+        return bool(search_id)
 
     async def enqueue_batch(self, **kwargs: Any) -> dict[str, Any]:
         return {"batch": {"id": "mock-batch"}, "failures": []}

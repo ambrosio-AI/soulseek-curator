@@ -124,6 +124,8 @@ class ImportJob:
     tracks: list[TrackRequest]
     results: list[TrackResult] = field(default_factory=list)
     status: str = "created"
+    active_search_id: str = ""
+    active_query: str = ""
 
     @classmethod
     def create(

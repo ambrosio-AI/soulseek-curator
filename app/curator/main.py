@@ -17,6 +17,7 @@ from .storage import Store
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.getenv("CURATOR_DATA_DIR", "data"))
+TERMINAL_JOB_STATUSES = {"completed", "cancelled", "error"}
 
 app = FastAPI(title="Soulseek Curator")
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
@@ -131,6 +132,26 @@ async def show_job(request: Request, job_id: str):
     except KeyError:
         raise HTTPException(status_code=404, detail="Job not found") from None
     return templates.TemplateResponse(request=request, name="job.html", context={"job": job})
+
+
+@app.post("/jobs/{job_id}/cancel")
+async def cancel_job(job_id: str):
+    try:
+        job = store.get_job(job_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Job not found") from None
+    if job.status in TERMINAL_JOB_STATUSES:
+        return RedirectResponse(f"/jobs/{job.id}", status_code=303)
+
+    job.status = "cancel_requested"
+    store.save_job(job)
+    if job.active_search_id:
+        client = build_client(load_config())
+        try:
+            await client.stop_search(job.active_search_id)
+        except Exception:
+            pass
+    return RedirectResponse(f"/jobs/{job.id}", status_code=303)
 
 
 @app.post("/jobs/{job_id}/reports")
