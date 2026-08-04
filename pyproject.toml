@@ -3,7 +3,7 @@ name = "soulseek-curator"
 version = "0.1.0"
 description = "Local web curator for lawful slskd/Soulseek list imports, quality fallback, review, queueing, and reports."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Ambrosio AI" }]
 dependencies = [
@@ -30,11 +30,10 @@ pythonpath = ["app"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py310"
 
 [tool.setuptools.packages.find]
 where = ["app"]
 
 [tool.setuptools.package-data]
 curator = ["templates/*.html", "static/*.css"]
-
