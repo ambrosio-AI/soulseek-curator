@@ -132,6 +132,9 @@ On a server where slskd already exists, remove the bundled `slskd` service and s
 slskd_url: http://existing-slskd-host:5030
 ```
 
+If Docker builds are blocked by the host/LXC runtime, use
+[`docs/SYSTEMD_DEPLOY.md`](docs/SYSTEMD_DEPLOY.md).
+
 ## Reports
 
 Each job writes reports under:
@@ -170,4 +173,3 @@ slskd_url: mock://slskd
 - Keep `automatic_queue_enabled` off until scoring has been validated with dry-runs.
 - Review ambiguous results.
 - Never commit `.env`, API keys, private lists, generated reports, or downloaded files.
-

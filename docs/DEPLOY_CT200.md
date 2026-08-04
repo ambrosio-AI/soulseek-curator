@@ -48,3 +48,7 @@ http://192.168.1.23:5030
 Remove the `slskd` service from `docker-compose.yml`, connect Curator to the existing
 slskd URL in settings, and make sure both services agree on the same download root.
 
+## Current CT200 Note
+
+On the current CT200 LXC, Docker containers run, but Docker image builds may fail with an
+AppArmor profile error. In that case use [SYSTEMD_DEPLOY.md](SYSTEMD_DEPLOY.md).
