@@ -156,6 +156,11 @@ small {
   color: white;
 }
 
+.button.subtle {
+  min-height: 36px;
+  padding: 0 10px;
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;
@@ -191,12 +196,27 @@ small {
   text-decoration: none;
 }
 
+.row.job-row {
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+}
+
 .row:last-child {
   border-bottom: 0;
 }
 
 .row.result {
   grid-template-columns: 1fr auto auto 56px;
+}
+
+.row-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.row-actions form {
+  margin: 0;
 }
 
 .pill {
@@ -257,6 +277,19 @@ textarea {
 
 textarea {
   resize: vertical;
+}
+
+@media (max-width: 760px) {
+  .row,
+  .row.job-row,
+  .row.result {
+    align-items: start;
+    grid-template-columns: 1fr;
+  }
+
+  .row-actions {
+    justify-content: flex-start;
+  }
 }
 
 .full {

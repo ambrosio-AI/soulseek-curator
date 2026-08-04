@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import sqlite3
 from dataclasses import asdict
 from pathlib import Path
@@ -80,6 +81,13 @@ class Store:
         if not row:
             raise KeyError(job_id)
         return job_from_dict(json.loads(row["payload"]))
+
+    def delete_job(self, job_id: str) -> None:
+        with self.connect() as con:
+            result = con.execute("delete from jobs where id=?", (job_id,))
+        if result.rowcount == 0:
+            raise KeyError(job_id)
+        shutil.rmtree(self.reports_dir / job_id, ignore_errors=True)
 
 
 def job_to_dict(job: ImportJob) -> dict[str, Any]:

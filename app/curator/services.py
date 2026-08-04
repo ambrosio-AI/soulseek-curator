@@ -33,8 +33,8 @@ async def process_job(job: ImportJob, config: CuratorConfig, store: Store, *, qu
         return job
     job.status = "running"
     store.save_job(job)
-    results: list[TrackResult] = []
-    for track in job.tracks:
+    results: list[TrackResult] = list(job.results)
+    for track in job.tracks[len(results) :]:
         if is_cancel_requested(store, job.id):
             job.status = "cancelled"
             job.active_search_id = ""

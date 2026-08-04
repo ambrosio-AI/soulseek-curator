@@ -1,5 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Dashboard - Soulseek Curator{% endblock %}
+{% block head_extra %}
+{% if active_jobs %}
+<meta http-equiv="refresh" content="5">
+{% endif %}
+{% endblock %}
 {% block content %}
 <section class="hero">
   <div>
@@ -30,23 +35,54 @@
 
 <section>
   <div class="section-title">
-    <h2>Recent jobs</h2>
+    <h2>Active jobs</h2>
   </div>
-  {% if jobs %}
+  {% if active_jobs %}
     <div class="list">
-      {% for job in jobs %}
-      <a class="row" href="/jobs/{{ job.id }}">
+      {% for job in active_jobs %}
+      <div class="row job-row">
+        <span>
+          <strong>{{ job.name }}</strong>
+          <small>{{ job.created_at }}</small>
+        </span>
+        <span>{{ job.result_count }}/{{ job.track_count }} processed</span>
+        <span class="pill">{{ job.status }}</span>
+        <span class="row-actions">
+          <a class="button" href="/jobs/{{ job.id }}">Open</a>
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="empty">No active imports.</p>
+  {% endif %}
+</section>
+
+<section>
+  <div class="section-title">
+    <h2>Finished jobs</h2>
+  </div>
+  {% if finished_jobs %}
+    <div class="list">
+      {% for job in finished_jobs %}
+      <div class="row job-row">
         <span>
           <strong>{{ job.name }}</strong>
           <small>{{ job.created_at }}</small>
         </span>
         <span>{{ job.track_count }} tracks</span>
         <span class="pill">{{ job.status }}</span>
-      </a>
+        <span class="row-actions">
+          <a class="button" href="/jobs/{{ job.id }}">Open</a>
+          <form method="post" action="/jobs/{{ job.id }}/delete">
+            <button class="button danger subtle" type="submit">Delete</button>
+          </form>
+        </span>
+      </div>
       {% endfor %}
     </div>
   {% else %}
-    <p class="empty">No imports yet.</p>
+    <p class="empty">No finished imports yet.</p>
   {% endif %}
 </section>
 {% endblock %}

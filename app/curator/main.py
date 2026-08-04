@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import asyncio
 from pathlib import Path
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -25,17 +26,50 @@ templates = Jinja2Templates(directory=BASE_DIR / "templates")
 store = Store(DATA_DIR)
 
 
+@app.on_event("startup")
+async def resume_interrupted_jobs():
+    config = load_config()
+    for item in store.list_jobs():
+        if item["status"] in TERMINAL_JOB_STATUSES:
+            continue
+        try:
+            job = store.get_job(item["id"])
+        except KeyError:
+            continue
+        if job.status == "cancel_requested":
+            job.status = "cancelled"
+            job.active_search_id = ""
+            job.active_query = ""
+            store.save_job(job)
+            write_reports(job, store.reports_dir)
+            continue
+        asyncio.create_task(process_job(job, config, store, queue=job.mode == "queue"))
+
+
+@app.middleware("http")
+async def no_cache_dynamic_pages(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path == "/" or request.url.path.startswith("/jobs"):
+        response.headers["Cache-Control"] = "no-store, max-age=0"
+    return response
+
+
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
     config = load_config()
     client = build_client(config)
     ok, status = await client.health()
+    jobs = store.list_jobs()
+    active_jobs = [job for job in jobs if job["status"] not in TERMINAL_JOB_STATUSES]
+    finished_jobs = [job for job in jobs if job["status"] in TERMINAL_JOB_STATUSES]
     return templates.TemplateResponse(
         request=request,
         name="dashboard.html",
         context={
             "request": request,
-            "jobs": store.list_jobs(),
+            "jobs": jobs,
+            "active_jobs": active_jobs,
+            "finished_jobs": finished_jobs,
             "config": config,
             "slskd_ok": ok,
             "slskd_status": status,
@@ -158,6 +192,18 @@ async def cancel_job(job_id: str):
     store.save_job(job)
     write_reports(job, store.reports_dir)
     return RedirectResponse(f"/jobs/{job.id}", status_code=303)
+
+
+@app.post("/jobs/{job_id}/delete")
+async def delete_job(job_id: str):
+    try:
+        job = store.get_job(job_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Job not found") from None
+    if job.status not in TERMINAL_JOB_STATUSES:
+        raise HTTPException(status_code=409, detail="Only completed, cancelled, or failed jobs can be deleted")
+    store.delete_job(job_id)
+    return RedirectResponse("/", status_code=303)
 
 
 @app.post("/jobs/{job_id}/reports")
