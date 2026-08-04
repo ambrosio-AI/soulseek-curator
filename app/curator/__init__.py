@@ -1,0 +1,2 @@
+"""Soulseek Curator application package."""
+

@@ -1,0 +1,31 @@
+services:
+  curator:
+    build: .
+    container_name: soulseek-curator
+    restart: unless-stopped
+    environment:
+      CURATOR_CONFIG: /config/curator.yaml
+      CURATOR_DATA_DIR: /data
+      SLSKD_API_KEY: ${SLSKD_API_KEY:-}
+    ports:
+      - "8088:8088"
+    volumes:
+      - ./config:/config
+      - ./data:/data
+      - /mnt/music:/downloads
+    depends_on:
+      - slskd
+
+  slskd:
+    image: slskd/slskd:latest
+    container_name: slskd
+    restart: unless-stopped
+    environment:
+      SLSKD_REMOTE_CONFIGURATION: "true"
+    ports:
+      - "5030:5030"
+      - "50300:50300"
+    volumes:
+      - ./slskd:/app
+      - /mnt/music:/downloads
+

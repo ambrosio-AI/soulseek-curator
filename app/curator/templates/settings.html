@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Settings - Soulseek Curator{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>Settings</h1>
+  <form action="/settings" method="post" class="form two">
+    <label>
+      slskd URL
+      <input name="slskd_url" value="{{ config.slskd_url }}">
+    </label>
+    <label>
+      Download root
+      <input name="download_root" value="{{ config.download_root }}">
+    </label>
+    <label>
+      Search timeout
+      <input name="search_timeout" type="number" min="5" value="{{ config.search_timeout }}">
+    </label>
+    <label>
+      Response limit
+      <input name="response_limit" type="number" min="1" value="{{ config.response_limit }}">
+    </label>
+    <label>
+      File limit
+      <input name="file_limit" type="number" min="1" value="{{ config.file_limit }}">
+    </label>
+    <label>
+      Minimum upload speed
+      <input name="minimum_upload_speed" type="number" min="0" value="{{ config.minimum_upload_speed }}">
+    </label>
+    <label>
+      Maximum queue length
+      <input name="maximum_queue_length" type="number" min="0" value="{{ config.maximum_queue_length }}">
+    </label>
+    <label>
+      Confidence threshold
+      <input name="confidence_threshold" type="number" min="0" max="100" value="{{ config.confidence_threshold }}">
+    </label>
+    <label>
+      Ambiguous threshold
+      <input name="ambiguous_threshold" type="number" min="0" max="100" value="{{ config.ambiguous_threshold }}">
+    </label>
+    <label>
+      Fallback order
+      <input name="fallback_order" value="{{ config.fallback_order|join(',') }}">
+    </label>
+    <label class="full check">
+      <input type="checkbox" name="automatic_queue_enabled" {{ 'checked' if config.automatic_queue_enabled else '' }}>
+      Enable automatic queueing
+    </label>
+    <label class="full">
+      Reject terms
+      <textarea name="reject_terms" rows="8">{{ config.reject_terms|join('\n') }}</textarea>
+    </label>
+    <label class="full">
+      Category folders
+      <textarea name="category_folders" rows="8">{% for key, value in config.category_folders.items() %}{{ key }}={{ value }}
+{% endfor %}</textarea>
+      <small>One mapping per line: category=relative/or/absolute/folder.</small>
+    </label>
+    <button class="button primary" type="submit">Save settings</button>
+  </form>
+</section>
+{% endblock %}
+

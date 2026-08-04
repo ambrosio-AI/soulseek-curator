@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Soulseek Curator{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <h1>List imports, review, queueing, reports.</h1>
+    <p>Local-first control panel for lawful slskd workflows.</p>
+  </div>
+  <a class="button primary" href="/imports/new">Import list</a>
+</section>
+
+<section class="grid metrics">
+  <div class="metric">
+    <span>slskd</span>
+    <strong class="{{ 'ok' if slskd_ok else 'bad' }}">{{ slskd_status }}</strong>
+  </div>
+  <div class="metric">
+    <span>Jobs</span>
+    <strong>{{ jobs|length }}</strong>
+  </div>
+  <div class="metric">
+    <span>Download root</span>
+    <strong>{{ config.download_root }}</strong>
+  </div>
+  <div class="metric">
+    <span>Auto queue</span>
+    <strong>{{ 'enabled' if config.automatic_queue_enabled else 'disabled' }}</strong>
+  </div>
+</section>
+
+<section>
+  <div class="section-title">
+    <h2>Recent jobs</h2>
+  </div>
+  {% if jobs %}
+    <div class="list">
+      {% for job in jobs %}
+      <a class="row" href="/jobs/{{ job.id }}">
+        <span>
+          <strong>{{ job.name }}</strong>
+          <small>{{ job.created_at }}</small>
+        </span>
+        <span>{{ job.track_count }} tracks</span>
+        <span class="pill">{{ job.status }}</span>
+      </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="empty">No imports yet.</p>
+  {% endif %}
+</section>
+{% endblock %}
+

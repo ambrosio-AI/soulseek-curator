@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}{{ job.name }} - Soulseek Curator{% endblock %}
+{% block content %}
+<section class="hero compact">
+  <div>
+    <h1>{{ job.name }}</h1>
+    <p>{{ job.status }} · {{ job.tracks|length }} tracks · {{ job.mode }}</p>
+  </div>
+  <form method="post" action="/jobs/{{ job.id }}/reports">
+    <button class="button" type="submit">Regenerate reports</button>
+  </form>
+</section>
+
+<section class="report-links">
+  <a href="/jobs/{{ job.id }}/reports/report.md">report.md</a>
+  <a href="/jobs/{{ job.id }}/reports/found.csv">found.csv</a>
+  <a href="/jobs/{{ job.id }}/reports/not-found.csv">not-found.csv</a>
+  <a href="/jobs/{{ job.id }}/reports/fallback-used.csv">fallback-used.csv</a>
+  <a href="/jobs/{{ job.id }}/reports/ambiguous.csv">ambiguous.csv</a>
+</section>
+
+<section>
+  <h2>Results</h2>
+  {% if job.results %}
+  <div class="list">
+    {% for result in job.results %}
+    <div class="row result">
+      <span>
+        <strong>{{ result.track.display_name }}</strong>
+        <small>{{ result.message }}</small>
+      </span>
+      <span class="pill {{ result.status }}">{{ result.status }}</span>
+      <span>{{ result.quality_attempted }}</span>
+      <span>{{ result.selected.score if result.selected else '' }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty">Job has not produced results yet. Refresh in a moment.</p>
+  {% endif %}
+</section>
+{% endblock %}
+

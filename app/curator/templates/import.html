@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}New import - Soulseek Curator{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>New import</h1>
+  <form action="/imports" method="post" enctype="multipart/form-data" class="form">
+    <label>
+      List file
+      <input type="file" name="upload" accept=".csv,.txt,.md,.markdown,.json" required>
+    </label>
+    <label>
+      Mode
+      <select name="mode">
+        <option value="dry-run">Dry-run only</option>
+        <option value="queue">Queue selected matches</option>
+      </select>
+      <small>Queue mode also requires automatic queueing enabled in Settings.</small>
+    </label>
+    <label>
+      Preferred quality
+      <select name="quality">
+        {% for name in config.quality_profiles.keys() %}
+        <option value="{{ name }}" {{ 'selected' if name == 'flac' else '' }}>{{ name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      Fallback order
+      <input name="fallback_order" value="{{ config.fallback_order|join(',') }}">
+    </label>
+    <label>
+      Target root
+      <input name="target_root" value="{{ config.download_root }}">
+    </label>
+    <button class="button primary" type="submit">Start import</button>
+  </form>
+</section>
+{% endblock %}
+

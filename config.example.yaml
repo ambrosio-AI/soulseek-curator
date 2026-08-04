@@ -1,0 +1,48 @@
+slskd_url: http://slskd:5030
+download_root: /downloads
+automatic_queue_enabled: false
+search_timeout: 15
+response_limit: 40
+file_limit: 2000
+minimum_upload_speed: 0
+maximum_queue_length: 1000000
+confidence_threshold: 72
+ambiguous_threshold: 58
+fallback_order:
+  - flac
+  - mp3_320
+  - mp3_v0
+  - mp3_any
+reject_terms:
+  - karaoke
+  - cover
+  - slowed
+  - reverb
+  - nightcore
+  - tribute
+quality_profiles:
+  flac:
+    extensions: [flac]
+    min_bitrate:
+    min_size_mb:
+    max_size_mb:
+  mp3_320:
+    extensions: [mp3]
+    min_bitrate: 300
+    min_size_mb:
+    max_size_mb:
+  mp3_v0:
+    extensions: [mp3]
+    min_bitrate: 220
+    min_size_mb:
+    max_size_mb:
+  mp3_any:
+    extensions: [mp3]
+    min_bitrate: 128
+    min_size_mb:
+    max_size_mb:
+category_folders:
+  90s dance: 01_90s_dance
+  pop 2000: 02_pop_2000
+  rock: 03_rock
+
