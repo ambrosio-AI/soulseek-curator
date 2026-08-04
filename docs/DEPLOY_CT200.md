@@ -1,8 +1,9 @@
 # Deploy on the Torrent CT
 
-The intended local target is the torrent container/server where the media paths are
-available. In the current Ambrosio environment that is Proxmox CT `200`, hostname
-`Torrent`, IP `192.168.1.23`, with music visible at `/mnt/music`.
+The intended local target is the torrent container/server or a nearby LAN host that can
+reach slskd. In the current Ambrosio environment Curator runs on Proxmox CT `200`,
+hostname `Torrent`, IP `192.168.1.23`. The real slskd instance is on
+`192.168.1.4:5030`.
 
 ## Prepare
 
@@ -19,7 +20,7 @@ Edit `.env` and set:
 SLSKD_API_KEY=...
 ```
 
-Review `docker-compose.yml` and keep:
+If Curator and slskd run in the same Docker stack, review `docker-compose.yml` and keep:
 
 ```yaml
 - /mnt/music:/downloads
@@ -46,7 +47,14 @@ http://192.168.1.23:5030
 ## If slskd Already Exists
 
 Remove the `slskd` service from `docker-compose.yml`, connect Curator to the existing
-slskd URL in settings, and make sure both services agree on the same download root.
+slskd URL in settings.
+
+If existing slskd already downloads to a NAS path, do not mount the NAS into Curator just
+for queueing. Curator sends slskd-relative destination folders such as
+`BBQ/verano-2026/rock`; slskd resolves them inside its own configured download directory.
+
+Set `slskd download root` only as a reference for converting absolute paths that may
+appear in imported CSV/JSON files. Normal imports should use relative destination folders.
 
 ## Current CT200 Note
 

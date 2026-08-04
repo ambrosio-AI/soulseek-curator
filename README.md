@@ -13,7 +13,7 @@ It is not designed as a piracy automation tool.
 
 - Local web UI for imports, settings, jobs, and reports.
 - CSV, TXT, Markdown, and JSON list imports.
-- Configurable quality profiles: FLAC, MP3 320, MP3 V0, MP3 fallback by default.
+- Configurable quality profiles: FLAC, WAV, MP3 320, MP3 V0, MP3 fallback by default.
 - Configurable fallback chain per import.
 - Category-to-folder mapping.
 - Match scoring with confidence and ambiguous thresholds.
@@ -51,8 +51,8 @@ CSV:
 
 ```csv
 category,artist,title,preferred_quality,fallback_quality,target_folder
-90s dance,Corona,The Rhythm of the Night,flac,mp3_320,/downloads/01_90s_dance
-rock,System of a Down,Chop Suey!,flac,mp3_320,/downloads/03_rock
+90s dance,Corona,The Rhythm of the Night,flac,wav,BBQ/01_90s_dance
+rock,System of a Down,Chop Suey!,flac,mp3_320,BBQ/03_rock
 ```
 
 JSON:
@@ -86,6 +86,47 @@ POST /api/v0/transfers/downloads/batches
 ```
 
 Queue mode only works when `automatic_queue_enabled` is enabled in settings.
+
+## Download Destinations
+
+slskd owns the real download location. If slskd is configured to download into a NAS
+folder, Soulseek Curator does not need to mount that NAS itself. Curator only sends a
+destination subfolder to slskd.
+
+Use `Destination folder inside slskd downloads` when starting an import to choose a
+subfolder under slskd's download root, for example:
+
+```text
+BBQ/verano-2026
+```
+
+If a track has category `rock`, and no more specific mapping is configured, Curator queues
+it to:
+
+```text
+BBQ/verano-2026/rock
+```
+
+`slskd download root` in Settings is a reference path used only when list files contain
+absolute paths such as `/downloads/BBQ/rock`. Curator converts those to slskd-relative
+destinations like `BBQ/rock` before queueing. For normal use, prefer relative folders.
+
+Category destination folders map imported categories to subfolders:
+
+```text
+90s dance=BBQ/01_90s_dance
+rock=BBQ/03_rock
+```
+
+With a per-import destination prefix, shorter mappings also work:
+
+```text
+90s dance=01_90s_dance
+rock=03_rock
+```
+
+Then an import prefix of `BBQ/verano-2026` produces
+`BBQ/verano-2026/01_90s_dance` and `BBQ/verano-2026/03_rock`.
 
 ## slskd API
 
@@ -138,6 +179,9 @@ On a server where slskd already exists, remove the bundled `slskd` service and s
 ```yaml
 slskd_url: http://existing-slskd-host:5030
 ```
+
+When slskd already has a NAS download folder configured, set `slskd_url` to that existing
+instance and leave folder selection to Curator's relative destination fields.
 
 If Docker builds are blocked by the host/LXC runtime, use
 [`docs/SYSTEMD_DEPLOY.md`](docs/SYSTEMD_DEPLOY.md).

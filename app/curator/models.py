@@ -33,7 +33,7 @@ class CuratorConfig:
     confidence_threshold: int = 72
     ambiguous_threshold: int = 58
     fallback_order: list[str] = field(
-        default_factory=lambda: ["flac", "mp3_320", "mp3_v0", "mp3_any"]
+        default_factory=lambda: ["flac", "wav", "mp3_320", "mp3_v0", "mp3_any"]
     )
     reject_terms: list[str] = field(
         default_factory=lambda: [
@@ -51,6 +51,7 @@ class CuratorConfig:
     quality_profiles: dict[str, QualityProfile] = field(
         default_factory=lambda: {
             "flac": QualityProfile("flac", ["flac"]),
+            "wav": QualityProfile("wav", ["wav", "wave"]),
             "mp3_320": QualityProfile("mp3_320", ["mp3"], min_bitrate=300),
             "mp3_v0": QualityProfile("mp3_v0", ["mp3"], min_bitrate=220),
             "mp3_any": QualityProfile("mp3_any", ["mp3"], min_bitrate=128),
@@ -146,16 +147,37 @@ class ImportJob:
         )
 
 
-def relative_destination(root: str, folder: str, category: str) -> str:
+def _safe_relative_path(value: str) -> str:
+    parts = []
+    for part in Path(value).parts:
+        if part in {"", ".", "/", "\\"} or part == "..":
+            continue
+        parts.append(part)
+    return "/".join(parts)
+
+
+def slskd_destination(download_root: str, destination_prefix: str, folder: str, category: str) -> str:
     preferred = folder.strip() if folder else category.strip() or "Unsorted"
     full = Path(preferred)
     if full.is_absolute():
         try:
-            return str(full.relative_to(Path(root))).strip("/")
+            preferred = str(full.relative_to(Path(download_root))).strip("/")
         except ValueError:
-            return full.name
-    return str(full).strip("/")
+            preferred = full.name
+    else:
+        preferred = str(full).strip("/")
+
+    preferred = _safe_relative_path(preferred) or "Unsorted"
+    prefix = _safe_relative_path(destination_prefix.strip())
+    if not prefix:
+        return preferred
+    if preferred == prefix or preferred.startswith(f"{prefix}/"):
+        return preferred
+    return f"{prefix}/{preferred}"
+
+
+def relative_destination(root: str, folder: str, category: str) -> str:
+    return slskd_destination(root, "", folder, category)
 
 
 Json = dict[str, Any]
-

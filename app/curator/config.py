@@ -31,10 +31,15 @@ def load_config(path: Path = DEFAULT_CONFIG_PATH) -> CuratorConfig:
 
     raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     profiles = raw.get("quality_profiles") or {}
-    quality_profiles = {
-        name: _quality_from_dict(name, payload or {}) for name, payload in profiles.items()
-    }
     base = CuratorConfig()
+    quality_profiles = dict(base.quality_profiles)
+    quality_profiles.update(
+        {name: _quality_from_dict(name, payload or {}) for name, payload in profiles.items()}
+    )
+    fallback_order = list(raw.get("fallback_order", base.fallback_order))
+    for name in base.fallback_order:
+        if name not in fallback_order:
+            fallback_order.append(name)
     return CuratorConfig(
         slskd_url=raw.get("slskd_url", base.slskd_url),
         download_root=raw.get("download_root", base.download_root),
@@ -48,10 +53,10 @@ def load_config(path: Path = DEFAULT_CONFIG_PATH) -> CuratorConfig:
         maximum_queue_length=int(raw.get("maximum_queue_length", base.maximum_queue_length)),
         confidence_threshold=int(raw.get("confidence_threshold", base.confidence_threshold)),
         ambiguous_threshold=int(raw.get("ambiguous_threshold", base.ambiguous_threshold)),
-        fallback_order=list(raw.get("fallback_order", base.fallback_order)),
+        fallback_order=fallback_order,
         reject_terms=list(raw.get("reject_terms", base.reject_terms)),
         category_folders=dict(raw.get("category_folders", base.category_folders)),
-        quality_profiles=quality_profiles or base.quality_profiles,
+        quality_profiles=quality_profiles,
     )
 
 

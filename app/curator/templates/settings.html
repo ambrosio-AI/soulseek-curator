@@ -9,8 +9,9 @@
       <input name="slskd_url" value="{{ config.slskd_url }}">
     </label>
     <label>
-      Download root
+      slskd download root
       <input name="download_root" value="{{ config.download_root }}">
+      <small>Reference path used only to convert absolute list paths. Downloads still land inside slskd's own configured download directory.</small>
     </label>
     <label>
       Search timeout
@@ -53,13 +54,12 @@
       <textarea name="reject_terms" rows="8">{{ config.reject_terms|join('\n') }}</textarea>
     </label>
     <label class="full">
-      Category folders
+      Category destination folders
       <textarea name="category_folders" rows="8">{% for key, value in config.category_folders.items() %}{{ key }}={{ value }}
 {% endfor %}</textarea>
-      <small>One mapping per line: category=relative/or/absolute/folder.</small>
+      <small>One mapping per line: category=subfolder. These are slskd-relative destinations, for example rock=BBQ/rock.</small>
     </label>
     <button class="button primary" type="submit">Save settings</button>
   </form>
 </section>
 {% endblock %}
-

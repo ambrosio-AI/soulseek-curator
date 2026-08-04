@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .config import slskd_api_key, slskd_password, slskd_username
-from .models import CuratorConfig, ImportJob, TrackResult, relative_destination
+from .models import CuratorConfig, ImportJob, TrackResult, slskd_destination
 from .reports import write_reports
 from .scoring import choose_best
 from .slskd import MockSlskdClient, SlskdClient
@@ -47,7 +47,8 @@ async def process_job(job: ImportJob, config: CuratorConfig, store: Store, *, qu
                 if quality != job.quality:
                     status = "fallback_used"
                 configured_folder = config.category_folders.get(track.category, "")
-                destination = relative_destination(
+                destination = slskd_destination(
+                    config.download_root,
                     job.target_root,
                     track.target_folder or configured_folder,
                     track.category,

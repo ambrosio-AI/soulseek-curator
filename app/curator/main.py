@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from .config import DEFAULT_CONFIG_PATH, load_config, save_config
-from .models import CuratorConfig, ImportJob
+from .models import ImportJob
 from .parser import parse_track_list
 from .reports import write_reports
 from .services import build_client, process_job
@@ -100,7 +100,7 @@ async def create_import(
     upload: UploadFile = File(...),
     mode: str = Form("dry-run"),
     quality: str = Form("flac"),
-    fallback_order: str = Form("flac,mp3_320,mp3_v0,mp3_any"),
+    fallback_order: str = Form("flac,wav,mp3_320,mp3_v0,mp3_any"),
     target_root: str = Form(""),
 ):
     content = await upload.read()
@@ -117,7 +117,7 @@ async def create_import(
         mode=mode,
         quality=quality,
         fallback_order=[item.strip() for item in fallback_order.split(",") if item.strip()],
-        target_root=target_root or config.download_root,
+        target_root=target_root.strip(),
     )
     store.save_job(job)
     background_tasks.add_task(process_job, job, config, store, queue=queue)

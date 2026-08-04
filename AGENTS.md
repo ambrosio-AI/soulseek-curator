@@ -9,6 +9,8 @@ list imports, match scoring, optional queueing, and reporting.
 - Keep automatic queueing guarded by configuration.
 - Keep dry-run and report generation first-class.
 - Do not commit secrets, private import lists, generated reports, or downloaded media.
+- Treat download destinations as slskd-relative paths. slskd owns the real filesystem/NAS
+  root; Curator should only send safe subfolders to slskd.
 - Prefer small, auditable Python modules over clever abstractions.
 - Use the real slskd API routes documented in code:
   - `POST /api/v0/searches`
@@ -52,4 +54,3 @@ http://localhost:8088
 Generated runtime data lives under `data/` and is ignored by git. Private local config may
 live in `config/local.yaml` and is ignored. Public examples belong in `config.example.yaml`
 or docs.
-

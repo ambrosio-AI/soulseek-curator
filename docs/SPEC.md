@@ -3,8 +3,9 @@
 ## Goal
 
 Provide a local web environment for importing track lists, choosing quality preferences and
-fallbacks, mapping categories to folders, searching slskd, queueing selected matches when
-explicitly enabled, and generating not-found/ambiguous/found reports.
+fallbacks, mapping categories to slskd-relative destination folders, searching slskd,
+queueing selected matches when explicitly enabled, and generating not-found/ambiguous/found
+reports.
 
 ## Non-Goals
 
@@ -33,9 +34,16 @@ Each track uses this order:
 Default profiles:
 
 - `flac`: `.flac`.
+- `wav`: `.wav` or `.wave`.
 - `mp3_320`: `.mp3` with bitrate >= 300.
 - `mp3_v0`: `.mp3` with bitrate >= 220.
 - `mp3_any`: `.mp3` with bitrate >= 128.
+
+Default fallback order:
+
+```text
+flac,wav,mp3_320,mp3_v0,mp3_any
+```
 
 ## Result States
 
@@ -71,7 +79,35 @@ Queue:
 POST /api/v0/transfers/downloads/batches
 ```
 
-Queue destination is relative to slskd's configured download directory. If an absolute
-folder is supplied, Curator attempts to convert it relative to the configured Curator
-download root. If that fails, it uses the final path segment to avoid unsafe traversal.
+Queue destination is relative to slskd's configured download directory. slskd owns the
+real filesystem path and NAS mount. Curator does not need to see or mount that path when
+slskd is remote.
 
+Destination resolution:
+
+1. Start with the import-level destination prefix, if any.
+2. Use `target_folder` from the list when present.
+3. Otherwise use the configured category destination folder.
+4. Otherwise use the imported category name.
+5. If an absolute path is supplied, convert it relative to `download_root`; if it is
+   outside that root, keep only the final safe path segment.
+
+Examples, assuming slskd downloads to its own NAS-backed root:
+
+```text
+import prefix: BBQ/verano-2026
+category: rock
+destination sent to slskd: BBQ/verano-2026/rock
+```
+
+```text
+category mapping: rock=03_rock
+import prefix: BBQ/verano-2026
+destination sent to slskd: BBQ/verano-2026/03_rock
+```
+
+```text
+target_folder: /downloads/BBQ/03_rock
+download_root: /downloads
+destination sent to slskd: BBQ/03_rock
+```
