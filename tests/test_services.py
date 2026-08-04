@@ -76,3 +76,60 @@ def test_process_job_searches_once_per_track_for_quality_fallback(tmp_path, monk
     assert result.status == "completed"
     assert result.results[0].status == "fallback_used"
     assert result.results[0].quality_attempted == "mp3_320"
+
+
+def test_process_job_uses_later_confident_fallback_over_early_ambiguous(tmp_path, monkeypatch):
+    class FallbackClient:
+        async def start_search(self, query, **kwargs):
+            return "search-1"
+
+        async def search_responses(self, search_id):
+            return [
+                {
+                    "username": "demo",
+                    "hasFreeUploadSlot": True,
+                    "queueLength": 0,
+                    "uploadSpeed": 512,
+                    "files": [
+                        {
+                            "filename": "Track.flac",
+                            "extension": "flac",
+                            "size": 32100000,
+                        },
+                        {
+                            "filename": "Demo - Track.mp3",
+                            "extension": "mp3",
+                            "bitRate": 320,
+                            "size": 9000000,
+                        },
+                    ],
+                }
+            ]
+
+        async def stop_search(self, search_id):
+            return True
+
+    monkeypatch.setattr("curator.services.build_client", lambda config: FallbackClient())
+    store = Store(tmp_path)
+    job = ImportJob.create(
+        name="fallback.csv",
+        tracks=[TrackRequest(artist="Demo", title="Track")],
+        mode="dry-run",
+        quality="flac",
+        fallback_order=["flac", "mp3_320"],
+        target_root="",
+    )
+    store.save_job(job)
+
+    result = asyncio.run(
+        process_job(
+            job,
+            CuratorConfig(search_timeout=1, confidence_threshold=90, ambiguous_threshold=50),
+            store,
+            queue=False,
+        )
+    )
+
+    assert result.status == "completed"
+    assert result.results[0].status == "fallback_used"
+    assert result.results[0].quality_attempted == "mp3_320"

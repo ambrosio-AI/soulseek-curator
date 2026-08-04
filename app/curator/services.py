@@ -118,7 +118,7 @@ async def process_job(job: ImportJob, config: CuratorConfig, store: Store, *, qu
                     )
                     break
                 if best.score >= config.ambiguous_threshold:
-                    track_result = TrackResult(
+                    ambiguous_result = TrackResult(
                         track=track,
                         status="ambiguous",
                         selected=best,
@@ -126,7 +126,8 @@ async def process_job(job: ImportJob, config: CuratorConfig, store: Store, *, qu
                         quality_attempted=quality,
                         message="best result is below confidence threshold",
                     )
-                    break
+                    if not track_result or best.score > (track_result.selected.score if track_result.selected else 0):
+                        track_result = ambiguous_result
         if is_cancel_requested(store, job.id):
             job.status = "cancelled"
             job.active_search_id = ""
