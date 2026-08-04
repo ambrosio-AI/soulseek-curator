@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -136,11 +137,15 @@ class SlskdClient:
         destination: str,
         search_id: str = "",
         external_id: str = "",
+        raw_file: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         await self.ensure_auth()
+        file_payload = dict(raw_file or {})
+        file_payload.setdefault("filename", filename)
+        file_payload.setdefault("size", size)
         payload: dict[str, Any] = {
             "username": username,
-            "files": [{"filename": filename, "size": size}],
+            "files": [file_payload],
             "options": {"destination": destination, "externalId": external_id},
         }
         if search_id:
@@ -151,8 +156,37 @@ class SlskdClient:
                 headers=self.headers,
                 json=payload,
             )
+            if response.status_code == 404:
+                return await self.enqueue_legacy(
+                    username=username,
+                    filename=filename,
+                    size=size,
+                    raw_file=file_payload,
+                )
             response.raise_for_status()
             return response.json() if response.content else {}
+
+    async def enqueue_legacy(
+        self,
+        *,
+        username: str,
+        filename: str,
+        size: int,
+        raw_file: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        await self.ensure_auth()
+        file_payload = dict(raw_file or {})
+        file_payload.setdefault("filename", filename)
+        file_payload.setdefault("size", size)
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.post(
+                f"{self.base_url}/api/v0/transfers/downloads/{quote(username, safe='')}",
+                headers=self.headers,
+                json=[file_payload],
+            )
+            response.raise_for_status()
+            payload = response.json() if response.content else True
+            return {"legacy": True, "destination_supported": False, "response": payload}
 
 
 class MockSlskdClient(SlskdClient):
@@ -201,4 +235,4 @@ class MockSlskdClient(SlskdClient):
         return bool(search_id)
 
     async def enqueue_batch(self, **kwargs: Any) -> dict[str, Any]:
-        return {"batch": {"id": "mock-batch"}, "failures": []}
+        return {"batch": {"id": "mock-batch"}, "failures": [], "destination_supported": True}

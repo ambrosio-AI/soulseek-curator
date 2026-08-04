@@ -82,6 +82,16 @@ Queue:
 POST /api/v0/transfers/downloads/batches
 ```
 
+Compatibility queue fallback:
+
+```text
+POST /api/v0/transfers/downloads/{username}
+```
+
+The fallback endpoint queues files on older slskd instances, but it does not support the
+destination option. Curator should surface that limitation in the job result message
+instead of failing the whole queue action.
+
 Dry-run promotion:
 
 - A completed dry-run may queue stored `selected` and `fallback_used` results.

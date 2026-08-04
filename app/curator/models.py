@@ -99,6 +99,7 @@ class Candidate:
     score: int = 0
     reasons: list[str] = field(default_factory=list)
     search_id: str = ""
+    raw_file: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass

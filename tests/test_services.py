@@ -207,6 +207,7 @@ def test_queue_selected_results_queues_existing_dry_run_matches(tmp_path, monkey
                 size=1234,
                 quality="flac",
                 search_id="search-1",
+                raw_file={"filename": "Demo - Track.flac", "size": 1234, "code": 1},
             ),
         ),
         TrackResult(
@@ -235,6 +236,39 @@ def test_queue_selected_results_queues_existing_dry_run_matches(tmp_path, monkey
     assert len(client.enqueued) == 1
     assert client.enqueued[0]["destination"] == "BBQ/01_rock"
     assert client.enqueued[0]["filename"] == "Demo - Track.flac"
+    assert client.enqueued[0]["raw_file"]["code"] == 1
     assert result.mode == "queue"
     assert result.results[0].status == "queued"
     assert result.results[0].queued is True
+
+
+def test_queue_selected_results_marks_legacy_destination_limitation(tmp_path, monkeypatch):
+    class LegacyQueueClient:
+        async def enqueue_batch(self, **kwargs):
+            return {"legacy": True, "destination_supported": False}
+
+    monkeypatch.setattr("curator.services.build_client", lambda config: LegacyQueueClient())
+    store = Store(tmp_path)
+    track = TrackRequest(artist="Demo", title="Track", category="rock")
+    job = ImportJob.create(
+        name="dry-run.csv",
+        tracks=[track],
+        mode="dry-run",
+        quality="flac",
+        fallback_order=["flac"],
+        target_root="BBQ",
+    )
+    job.status = "completed"
+    job.results = [
+        TrackResult(
+            track=track,
+            status="selected",
+            selected=Candidate(username="demo", filename="Demo - Track.flac", size=1234),
+        )
+    ]
+    store.save_job(job)
+
+    result = asyncio.run(queue_selected_results(job, CuratorConfig(slskd_url="mock://slskd"), store))
+
+    assert result.results[0].queued is True
+    assert "default downloads" in result.results[0].message

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 
+import httpx
+
 from .config import slskd_api_key, slskd_password, slskd_username
 from .models import CuratorConfig, ImportJob, TrackResult, slskd_destination
 from .reports import write_reports
@@ -97,16 +99,23 @@ async def process_job(job: ImportJob, config: CuratorConfig, store: Store, *, qu
                     if queue:
                         if is_cancel_requested(store, job.id):
                             break
-                        await client.enqueue_batch(
+                        queue_result = await client.enqueue_batch(
                             username=best.username,
                             filename=best.filename,
                             size=best.size,
                             destination=destination,
                             search_id=best.search_id,
                             external_id=job.id,
+                            raw_file=best.raw_file,
                         )
                         queued = True
-                        message = f"queued to {destination}"
+                        if queue_result.get("destination_supported") is False:
+                            message = (
+                                "queued to slskd default downloads; this slskd API does not support "
+                                "per-request folders"
+                            )
+                        else:
+                            message = f"queued to {destination}"
                         status = "queued" if status == "selected" else status
                     track_result = TrackResult(
                         track=track,
@@ -163,24 +172,35 @@ async def queue_selected_results(job: ImportJob, config: CuratorConfig, store: S
             result.track.target_folder or configured_folder,
             result.track.category,
         )
-        await client.enqueue_batch(
-            username=result.selected.username,
-            filename=result.selected.filename,
-            size=result.selected.size,
-            destination=destination,
-            search_id=result.selected.search_id,
-            external_id=job.id,
-        )
+        try:
+            queue_result = await client.enqueue_batch(
+                username=result.selected.username,
+                filename=result.selected.filename,
+                size=result.selected.size,
+                destination=destination,
+                search_id=result.selected.search_id,
+                external_id=job.id,
+                raw_file=result.selected.raw_file,
+            )
+        except httpx.HTTPError as exc:
+            result.status = "error"
+            result.message = f"slskd queue failed: {exc}"
+            continue
         result.queued = True
-        result.message = f"queued to {destination}"
+        if queue_result.get("destination_supported") is False:
+            result.message = (
+                "queued to slskd default downloads; this slskd API does not support per-request folders"
+            )
+        else:
+            result.message = f"queued to {destination}"
         if result.status == "selected":
             result.status = "queued"
         queued_count += 1
 
     if queued_count:
         job.mode = "queue"
-        store.save_job(job)
-        write_reports(job, store.reports_dir)
+    store.save_job(job)
+    write_reports(job, store.reports_dir)
     return job
 
 

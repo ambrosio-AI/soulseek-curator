@@ -90,6 +90,16 @@ Queue mode sends selected matches to slskd using:
 POST /api/v0/transfers/downloads/batches
 ```
 
+If the running slskd instance does not expose that newer batch endpoint, Curator falls
+back to the compatible legacy endpoint:
+
+```text
+POST /api/v0/transfers/downloads/{username}
+```
+
+That legacy endpoint queues the files but does not support a per-request destination
+folder. In that case downloads land in slskd's configured default download folder.
+
 Queue mode only works when `automatic_queue_enabled` is enabled in settings.
 
 After a dry-run completes, the job page shows `Queue N selected` when it has selected or
@@ -156,6 +166,7 @@ Soulseek Curator uses the slskd API:
 - `POST /api/v0/searches`
 - `GET /api/v0/searches/{id}/responses`
 - `POST /api/v0/transfers/downloads/batches`
+- `POST /api/v0/transfers/downloads/{username}` as a compatibility fallback
 
 Set an API key in `.env`:
 

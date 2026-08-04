@@ -103,6 +103,7 @@ def score_candidate(
         quality=quality,
         score=score,
         reasons=reasons,
+        raw_file=dict(file),
     )
 
 
@@ -124,4 +125,3 @@ def choose_best(
             candidate = score_candidate(track, response, file, config, quality_name)
             candidates.append(candidate)
     return sorted(candidates, key=lambda item: item.score, reverse=True)
-
