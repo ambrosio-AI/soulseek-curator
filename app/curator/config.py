@@ -36,10 +36,13 @@ def load_config(path: Path = DEFAULT_CONFIG_PATH) -> CuratorConfig:
     quality_profiles.update(
         {name: _quality_from_dict(name, payload or {}) for name, payload in profiles.items()}
     )
-    fallback_order = list(raw.get("fallback_order", base.fallback_order))
-    for name in base.fallback_order:
-        if name not in fallback_order:
-            fallback_order.append(name)
+    raw_fallback_order = list(raw.get("fallback_order", base.fallback_order))
+    fallback_order = [
+        name for name in base.fallback_order if name in quality_profiles
+    ]
+    fallback_order.extend(
+        name for name in raw_fallback_order if name in quality_profiles and name not in fallback_order
+    )
     return CuratorConfig(
         slskd_url=raw.get("slskd_url", base.slskd_url),
         download_root=raw.get("download_root", base.download_root),
