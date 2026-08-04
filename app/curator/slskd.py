@@ -6,6 +6,10 @@ from typing import Any
 import httpx
 
 
+def search_timeout_milliseconds(seconds: int) -> int:
+    return max(1, int(seconds)) * 1000
+
+
 class SlskdClient:
     def __init__(
         self,
@@ -82,7 +86,7 @@ class SlskdClient:
         await self.ensure_auth()
         payload = {
             "searchText": query,
-            "searchTimeout": search_timeout,
+            "searchTimeout": search_timeout_milliseconds(search_timeout),
             "responseLimit": response_limit,
             "fileLimit": file_limit,
             "minimumPeerUploadSpeed": minimum_upload_speed,
