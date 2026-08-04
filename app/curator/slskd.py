@@ -7,20 +7,46 @@ import httpx
 
 
 class SlskdClient:
-    def __init__(self, base_url: str, api_key: str = "", timeout: float = 30.0) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        api_key: str = "",
+        username: str = "",
+        password: str = "",
+        timeout: float = 30.0,
+    ) -> None:
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
+        self.username = username
+        self.password = password
         self.timeout = timeout
+        self._bearer_token = ""
 
     @property
     def headers(self) -> dict[str, str]:
         headers = {"Accept": "application/json"}
         if self.api_key:
             headers["X-API-Key"] = self.api_key
+        if self._bearer_token:
+            headers["Authorization"] = f"Bearer {self._bearer_token}"
         return headers
+
+    async def ensure_auth(self) -> None:
+        if self.api_key or self._bearer_token or not (self.username and self.password):
+            return
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(
+                f"{self.base_url}/api/v0/session",
+                headers={"Accept": "application/json"},
+                json={"username": self.username, "password": self.password},
+            )
+            response.raise_for_status()
+            payload = response.json()
+            self._bearer_token = payload.get("accessToken") or payload.get("token") or ""
 
     async def health(self) -> tuple[bool, str]:
         try:
+            await self.ensure_auth()
             async with httpx.AsyncClient(timeout=5.0) as client:
                 response = await client.get(f"{self.base_url}/api/v0/session", headers=self.headers)
             if response.status_code < 400:
@@ -31,6 +57,7 @@ class SlskdClient:
 
     async def search(self, query: str, *, search_timeout: int, response_limit: int, file_limit: int,
                      minimum_upload_speed: int, maximum_queue_length: int) -> tuple[str, list[dict[str, Any]]]:
+        await self.ensure_auth()
         payload = {
             "searchText": query,
             "searchTimeout": search_timeout,
@@ -67,6 +94,7 @@ class SlskdClient:
         search_id: str = "",
         external_id: str = "",
     ) -> dict[str, Any]:
+        await self.ensure_auth()
         payload: dict[str, Any] = {
             "username": username,
             "files": [{"filename": filename, "size": size}],
@@ -120,4 +148,3 @@ class MockSlskdClient(SlskdClient):
 
     async def enqueue_batch(self, **kwargs: Any) -> dict[str, Any]:
         return {"batch": {"id": "mock-batch"}, "failures": []}
-

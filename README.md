@@ -95,10 +95,17 @@ Soulseek Curator uses the slskd API:
 - `GET /api/v0/searches/{id}/responses`
 - `POST /api/v0/transfers/downloads/batches`
 
-Set your API key in `.env`:
+Set an API key in `.env`:
 
 ```bash
 SLSKD_API_KEY=replace-with-your-slskd-api-key
+```
+
+If your slskd instance uses web login instead of API keys, set:
+
+```bash
+SLSKD_USERNAME=your-slskd-web-user
+SLSKD_PASSWORD=your-slskd-web-password
 ```
 
 Secrets should not be committed.

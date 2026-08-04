@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .config import slskd_api_key
+from .config import slskd_api_key, slskd_password, slskd_username
 from .models import CuratorConfig, ImportJob, TrackResult, relative_destination
 from .reports import write_reports
 from .scoring import choose_best
@@ -11,7 +11,12 @@ from .storage import Store
 def build_client(config: CuratorConfig) -> SlskdClient:
     if config.slskd_url.startswith("mock://"):
         return MockSlskdClient()
-    return SlskdClient(config.slskd_url, slskd_api_key())
+    return SlskdClient(
+        config.slskd_url,
+        api_key=slskd_api_key(),
+        username=slskd_username(),
+        password=slskd_password(),
+    )
 
 
 async def process_job(job: ImportJob, config: CuratorConfig, store: Store, *, queue: bool) -> ImportJob:
