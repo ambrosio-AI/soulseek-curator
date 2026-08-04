@@ -71,7 +71,10 @@ def save_config(config: CuratorConfig, path: Path = DEFAULT_CONFIG_PATH) -> None
 
 
 def slskd_api_key() -> str:
-    return os.getenv("SLSKD_API_KEY", "").strip()
+    value = os.getenv("SLSKD_API_KEY", "").strip()
+    if value.lower().startswith("replace-with-"):
+        return ""
+    return value
 
 
 def slskd_username() -> str:
