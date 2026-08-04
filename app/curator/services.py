@@ -42,88 +42,91 @@ async def process_job(job: ImportJob, config: CuratorConfig, store: Store, *, qu
             store.save_job(job)
             write_reports(job, store.reports_dir)
             return job
-        qualities = quality_chain(track, job, config)
         track_result: TrackResult | None = None
-        for quality in qualities:
-            if is_cancel_requested(store, job.id):
-                break
-            search_id = await client.start_search(
-                track.query,
-                search_timeout=config.search_timeout,
-                response_limit=config.response_limit,
-                file_limit=config.file_limit,
-                minimum_upload_speed=config.minimum_upload_speed,
-                maximum_queue_length=config.maximum_queue_length,
-            )
-            job.active_search_id = search_id
-            job.active_query = track.query
-            store.save_job(job)
-            if await wait_for_search_or_cancel(job, config, store, client):
-                job.status = "cancelled"
-                job.active_search_id = ""
-                job.active_query = ""
-                store.save_job(job)
-                write_reports(job, store.reports_dir)
-                return job
-            responses = await client.search_responses(search_id)
+        preferred_quality = track.preferred_quality or job.quality or config.fallback_order[0]
+        qualities = quality_chain(track, job, config)
+        job.active_search_id = ""
+        job.active_query = track.query
+        store.save_job(job)
+        search_id = await client.start_search(
+            track.query,
+            search_timeout=config.search_timeout,
+            response_limit=config.response_limit,
+            file_limit=config.file_limit,
+            minimum_upload_speed=config.minimum_upload_speed,
+            maximum_queue_length=config.maximum_queue_length,
+        )
+        job.active_search_id = search_id
+        job.active_query = track.query
+        store.save_job(job)
+        if await wait_for_search_or_cancel(job, config, store, client):
+            job.status = "cancelled"
             job.active_search_id = ""
             job.active_query = ""
             store.save_job(job)
-            if is_cancel_requested(store, job.id):
-                break
-            candidates = choose_best(track, responses, config, quality)
-            for candidate in candidates:
-                candidate.search_id = search_id
-            if not candidates:
-                continue
-            best = candidates[0]
-            if best.score >= config.confidence_threshold:
-                status = "selected"
-                if quality != job.quality:
-                    status = "fallback_used"
-                configured_folder = config.category_folders.get(track.category, "")
-                destination = slskd_destination(
-                    config.download_root,
-                    job.target_root,
-                    track.target_folder or configured_folder,
-                    track.category,
-                )
-                queued = False
-                message = "selected"
-                if queue:
-                    if is_cancel_requested(store, job.id):
-                        break
-                    await client.enqueue_batch(
-                        username=best.username,
-                        filename=best.filename,
-                        size=best.size,
-                        destination=destination,
-                        search_id=best.search_id,
-                        external_id=job.id,
+            write_reports(job, store.reports_dir)
+            return job
+        responses = await client.search_responses(search_id)
+        job.active_search_id = ""
+        job.active_query = ""
+        store.save_job(job)
+        if not is_cancel_requested(store, job.id):
+            for quality in qualities:
+                if is_cancel_requested(store, job.id):
+                    break
+                candidates = choose_best(track, responses, config, quality)
+                for candidate in candidates:
+                    candidate.search_id = search_id
+                if not candidates:
+                    continue
+                best = candidates[0]
+                if best.score >= config.confidence_threshold:
+                    status = "selected"
+                    if quality != preferred_quality:
+                        status = "fallback_used"
+                    configured_folder = config.category_folders.get(track.category, "")
+                    destination = slskd_destination(
+                        config.download_root,
+                        job.target_root,
+                        track.target_folder or configured_folder,
+                        track.category,
                     )
-                    queued = True
-                    message = f"queued to {destination}"
-                    status = "queued" if status == "selected" else status
-                track_result = TrackResult(
-                    track=track,
-                    status=status,
-                    selected=best,
-                    candidates=candidates[:5],
-                    quality_attempted=quality,
-                    message=message,
-                    queued=queued,
-                )
-                break
-            if best.score >= config.ambiguous_threshold:
-                track_result = TrackResult(
-                    track=track,
-                    status="ambiguous",
-                    selected=best,
-                    candidates=candidates[:5],
-                    quality_attempted=quality,
-                    message="best result is below confidence threshold",
-                )
-                break
+                    queued = False
+                    message = "selected"
+                    if queue:
+                        if is_cancel_requested(store, job.id):
+                            break
+                        await client.enqueue_batch(
+                            username=best.username,
+                            filename=best.filename,
+                            size=best.size,
+                            destination=destination,
+                            search_id=best.search_id,
+                            external_id=job.id,
+                        )
+                        queued = True
+                        message = f"queued to {destination}"
+                        status = "queued" if status == "selected" else status
+                    track_result = TrackResult(
+                        track=track,
+                        status=status,
+                        selected=best,
+                        candidates=candidates[:5],
+                        quality_attempted=quality,
+                        message=message,
+                        queued=queued,
+                    )
+                    break
+                if best.score >= config.ambiguous_threshold:
+                    track_result = TrackResult(
+                        track=track,
+                        status="ambiguous",
+                        selected=best,
+                        candidates=candidates[:5],
+                        quality_attempted=quality,
+                        message="best result is below confidence threshold",
+                    )
+                    break
         if is_cancel_requested(store, job.id):
             job.status = "cancelled"
             job.active_search_id = ""

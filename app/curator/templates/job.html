@@ -1,10 +1,15 @@
 {% extends "base.html" %}
 {% block title %}{{ job.name }} - Soulseek Curator{% endblock %}
+{% block head_extra %}
+{% if job.status in ['created', 'running', 'cancel_requested'] %}
+<meta http-equiv="refresh" content="5">
+{% endif %}
+{% endblock %}
 {% block content %}
 <section class="hero compact">
   <div>
     <h1>{{ job.name }}</h1>
-    <p>{{ job.status }} · {{ job.tracks|length }} tracks · {{ job.mode }}</p>
+    <p>{{ job.status }} · {{ job.results|length }}/{{ job.tracks|length }} tracks · {{ job.mode }}</p>
     {% if job.active_query %}
     <p class="active-search">Searching: {{ job.active_query }}</p>
     {% endif %}
