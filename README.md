@@ -18,6 +18,7 @@ It is not designed as a piracy automation tool.
 - Category-to-folder mapping.
 - Match scoring with confidence and ambiguous thresholds.
 - Dry-run mode.
+- Dry-run jobs can queue their selected matches later without repeating the search.
 - Running imports can be cancelled from the job page.
 - Dashboard separates active jobs from finished jobs and refreshes while work is active.
 - Completed, cancelled, and failed jobs can be deleted from the dashboard or job page.
@@ -90,6 +91,11 @@ POST /api/v0/transfers/downloads/batches
 ```
 
 Queue mode only works when `automatic_queue_enabled` is enabled in settings.
+
+After a dry-run completes, the job page shows `Queue N selected` when it has selected or
+fallback matches that have not been queued yet. This is a manual action and does not
+require enabling automatic queueing. Curator marks queued results so the same job does not
+send them again.
 
 Running jobs show a `Cancel job` button. Cancelling marks the Curator job as cancelled,
 stops the active slskd search when one is known, and prevents any further tracks from

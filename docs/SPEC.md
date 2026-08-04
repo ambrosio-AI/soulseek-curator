@@ -82,6 +82,13 @@ Queue:
 POST /api/v0/transfers/downloads/batches
 ```
 
+Dry-run promotion:
+
+- A completed dry-run may queue stored `selected` and `fallback_used` results.
+- Already queued results are skipped so repeated clicks do not duplicate transfers.
+- This manual queue action does not require `automatic_queue_enabled`; that setting only
+  gates imports started directly in queue mode.
+
 `PUT /api/v0/searches/{id}` is used to stop the active slskd search when cancelling a
 running Curator job. Cancelling a Curator job is not the same as cancelling downloads that
 were already queued in slskd.

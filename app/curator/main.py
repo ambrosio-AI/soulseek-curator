@@ -13,7 +13,7 @@ from .config import DEFAULT_CONFIG_PATH, load_config, save_config
 from .models import ImportJob
 from .parser import parse_track_list
 from .reports import write_reports
-from .services import build_client, process_job
+from .services import QUEUEABLE_RESULT_STATUSES, build_client, process_job, queue_selected_results
 from .storage import Store
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -165,7 +165,16 @@ async def show_job(request: Request, job_id: str):
         job = store.get_job(job_id)
     except KeyError:
         raise HTTPException(status_code=404, detail="Job not found") from None
-    return templates.TemplateResponse(request=request, name="job.html", context={"job": job})
+    queueable_count = sum(
+        1
+        for result in job.results
+        if result.status in QUEUEABLE_RESULT_STATUSES and result.selected and not result.queued
+    )
+    return templates.TemplateResponse(
+        request=request,
+        name="job.html",
+        context={"job": job, "queueable_count": queueable_count},
+    )
 
 
 @app.post("/jobs/{job_id}/cancel")
@@ -204,6 +213,18 @@ async def delete_job(job_id: str):
         raise HTTPException(status_code=409, detail="Only completed, cancelled, or failed jobs can be deleted")
     store.delete_job(job_id)
     return RedirectResponse("/", status_code=303)
+
+
+@app.post("/jobs/{job_id}/queue-selected")
+async def queue_selected_job_results(job_id: str):
+    try:
+        job = store.get_job(job_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Job not found") from None
+    if job.status not in TERMINAL_JOB_STATUSES:
+        raise HTTPException(status_code=409, detail="Only finished jobs can queue selected dry-run results")
+    await queue_selected_results(job, load_config(), store)
+    return RedirectResponse(f"/jobs/{job.id}", status_code=303)
 
 
 @app.post("/jobs/{job_id}/reports")

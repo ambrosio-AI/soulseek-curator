@@ -20,6 +20,11 @@
       <button class="button danger" type="submit">Cancel job</button>
     </form>
     {% endif %}
+    {% if queueable_count %}
+    <form method="post" action="/jobs/{{ job.id }}/queue-selected">
+      <button class="button primary" type="submit">Queue {{ queueable_count }} selected</button>
+    </form>
+    {% endif %}
     <form method="post" action="/jobs/{{ job.id }}/reports">
       <button class="button" type="submit">Regenerate reports</button>
     </form>

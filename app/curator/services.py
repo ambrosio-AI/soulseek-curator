@@ -11,6 +11,7 @@ from .storage import Store
 
 
 CANCEL_STATUSES = {"cancel_requested", "cancelled"}
+QUEUEABLE_RESULT_STATUSES = {"selected", "fallback_used"}
 
 
 def build_client(config: CuratorConfig) -> SlskdClient:
@@ -144,6 +145,42 @@ async def process_job(job: ImportJob, config: CuratorConfig, store: Store, *, qu
     job.results = results
     store.save_job(job)
     write_reports(job, store.reports_dir)
+    return job
+
+
+async def queue_selected_results(job: ImportJob, config: CuratorConfig, store: Store) -> ImportJob:
+    client = build_client(config)
+    queued_count = 0
+    for result in job.results:
+        if result.queued or result.status == "queued":
+            continue
+        if result.status not in QUEUEABLE_RESULT_STATUSES or not result.selected:
+            continue
+        configured_folder = config.category_folders.get(result.track.category, "")
+        destination = slskd_destination(
+            config.download_root,
+            job.target_root,
+            result.track.target_folder or configured_folder,
+            result.track.category,
+        )
+        await client.enqueue_batch(
+            username=result.selected.username,
+            filename=result.selected.filename,
+            size=result.selected.size,
+            destination=destination,
+            search_id=result.selected.search_id,
+            external_id=job.id,
+        )
+        result.queued = True
+        result.message = f"queued to {destination}"
+        if result.status == "selected":
+            result.status = "queued"
+        queued_count += 1
+
+    if queued_count:
+        job.mode = "queue"
+        store.save_job(job)
+        write_reports(job, store.reports_dir)
     return job
 
 
