@@ -216,7 +216,7 @@ async def queue_selected_results(job: ImportJob, config: CuratorConfig, store: S
                 result.message = f"slskd queue failed: {exc}"
                 break
             # Esperar a que slskd procese el transfer y consultar su estado
-            await asyncio.sleep(3)
+            await asyncio.sleep(1)
             try:
                 rejected = await client.is_download_rejected(candidate.filename)
             except httpx.HTTPError:

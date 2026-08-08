@@ -222,14 +222,15 @@ async def delete_job(job_id: str):
 
 
 @app.post("/jobs/{job_id}/queue-selected")
-async def queue_selected_job_results(job_id: str):
+async def queue_selected_job_results(job_id: str, background_tasks: BackgroundTasks):
     try:
         job = store.get_job(job_id)
     except KeyError:
         raise HTTPException(status_code=404, detail="Job not found") from None
     if job.status not in TERMINAL_JOB_STATUSES:
         raise HTTPException(status_code=409, detail="Only finished jobs can queue selected dry-run results")
-    await queue_selected_results(job, load_config(), store)
+    # Encolar en background para que la web responda al instante
+    background_tasks.add_task(queue_selected_results, job, load_config(), store)
     return RedirectResponse(f"/jobs/{job.id}", status_code=303)
 
 
