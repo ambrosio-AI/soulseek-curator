@@ -189,30 +189,59 @@ async def queue_selected_results(job: ImportJob, config: CuratorConfig, store: S
             result.track.target_folder or configured_folder,
             result.track.category,
         )
-        try:
-            queue_result = await client.enqueue_batch(
-                username=result.selected.username,
-                filename=result.selected.filename,
-                size=result.selected.size,
-                destination=destination,
-                search_id=result.selected.search_id,
-                external_id=job.id,
-                raw_file=result.selected.raw_file,
-            )
-        except httpx.HTTPError as exc:
+        # Candidatos a probar: el seleccionado primero, luego los alternativos (sin duplicar por filename)
+        candidates = [result.selected]
+        seen_filenames = {result.selected.filename}
+        for candidate in result.candidates:
+            if candidate.filename not in seen_filenames:
+                seen_filenames.add(candidate.filename)
+                candidates.append(candidate)
+
+        queued_ok = False
+        for candidate in candidates:
+            if is_cancel_requested(store, job.id):
+                break
+            try:
+                queue_result = await client.enqueue_batch(
+                    username=candidate.username,
+                    filename=candidate.filename,
+                    size=candidate.size,
+                    destination=destination,
+                    search_id=candidate.search_id,
+                    external_id=job.id,
+                    raw_file=candidate.raw_file,
+                )
+            except httpx.HTTPError as exc:
+                result.status = "error"
+                result.message = f"slskd queue failed: {exc}"
+                break
+            # Esperar a que slskd procese el transfer y consultar su estado
+            await asyncio.sleep(3)
+            try:
+                rejected = await client.is_download_rejected(candidate.filename)
+            except httpx.HTTPError:
+                rejected = False
+            if rejected:
+                result.message = f"rejected, trying next candidate"
+                continue
+            # Éxito: el transfer se encoló sin rechazo
+            result.queued = True
+            result.selected = candidate
+            if queue_result.get("destination_supported") is False:
+                result.message = (
+                    "queued to slskd default downloads; this slskd API does not support per-request folders"
+                )
+            else:
+                result.message = f"queued to {destination}"
+            if result.status == "selected":
+                result.status = "queued"
+            queued_ok = True
+            queued_count += 1
+            break
+
+        if not queued_ok and result.status not in ("error",):
             result.status = "error"
-            result.message = f"slskd queue failed: {exc}"
-            continue
-        result.queued = True
-        if queue_result.get("destination_supported") is False:
-            result.message = (
-                "queued to slskd default downloads; this slskd API does not support per-request folders"
-            )
-        else:
-            result.message = f"queued to {destination}"
-        if result.status == "selected":
-            result.status = "queued"
-        queued_count += 1
+            result.message = "all candidates rejected"
 
     if queued_count:
         job.mode = "queue"

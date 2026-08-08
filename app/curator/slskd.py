@@ -188,6 +188,30 @@ class SlskdClient:
             payload = response.json() if response.content else True
             return {"legacy": True, "destination_supported": False, "response": payload}
 
+    async def get_download_state(self, filename: str) -> str:
+        """Consulta el estado de un transfer por filename. Devuelve el estado ('' si no se encuentra)."""
+        await self.ensure_auth()
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                f"{self.base_url}/api/v0/transfers/downloads",
+                headers=self.headers,
+            )
+            response.raise_for_status()
+            transfers = response.json() or []
+        for user_entry in transfers:
+            for directory in user_entry.get("directories", []):
+                for transfer in directory.get("files", []):
+                    if transfer.get("filename") == filename:
+                        return str(transfer.get("state", ""))
+        return ""
+
+    async def is_download_rejected(self, filename: str) -> bool:
+        """Devuelve True si el transfer con ese filename fue rechazado o falló."""
+        state = await self.get_download_state(filename)
+        if not state:
+            return False
+        return any(token in state for token in ("Rejected", "Errored", "Aborted"))
+
 
 class MockSlskdClient(SlskdClient):
     def __init__(self) -> None:
